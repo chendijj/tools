@@ -7,7 +7,7 @@ export default defineConfig({
 
   // GitHub Pages 部署配置
   // 如果部署到 GitHub Pages，请取消注释下面的 base 配置
-  // base: '/json-converter/', // 替换为你的仓库名
+  base: '/tools/', // 替换为你的仓库名
 
   server: {
     port: 5174,
