@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>功能单据分类工具</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+
+        .subtitle {
+            color: #666;
+            text-align: center;
+            margin-bottom: 40px;
+            font-size: 1.1em;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-top: 30px;
+        }
+
+        .input-section, .output-section {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .section-title {
+            font-size: 1.3em;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .section-icon {
+            font-size: 1.5em;
+        }
+
+        textarea {
+            width: 100%;
+            height: 400px;
+            padding: 15px;
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            resize: vertical;
+            transition: border-color 0.3s ease;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        #output {
+            background-color: #f8f9fa;
+            color: #333;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 15px;
+            margin: 20px 0;
+            justify-content: center;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+            transform: translateY(-2px);
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #218838;
+            transform: translateY(-2px);
+        }
+
+        .stats {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 20px;
+        }
+
+        .stat-item {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .stat-label {
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .example {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .example-title {
+            font-weight: 600;
+            color: #1976d2;
+            margin-bottom: 10px;
+        }
+
+        .example-content {
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.4;
+            white-space: pre-line;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+            
+            .container {
+                padding: 20px;
+            }
+            
+            h1 {
+                font-size: 2em;
+            }
+            
+            .button-group {
+                flex-direction: column;
+            }
+            
+            .stats-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #28a745;
+            color: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            transform: translateX(400px);
+            transition: transform 0.3s ease;
+            z-index: 1000;
+        }
+
+        .toast.show {
+            transform: translateX(0);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📋 功能单据分类工具</h1>
+        <p class="subtitle">自动将功能单据按类别分类并格式化输出</p>
+
+        <div class="example">
+            <div class="example-title">📝 使用说明</div>
+            <div class="example-content">1. 在左侧输入框中粘贴您的功能单据文本
+2. 支持【类别】功能名称 格式的自动分类
+3. 点击"处理文档"按钮进行分类
+4. 右侧将显示按类别整理后的结果
+5. 可以复制结果或下载为文件
+
+示例输入：
+【GM】PVETest关卡选择，需要支持读取pve_section_config
+【英雄装备】替换装备的时候需要支持脱下后穿戴
+pveboss关战力推荐挑战，pve关卡卡点具体到每个boss</div>
+        </div>
+
+        <div class="main-content">
+            <div class="input-section">
+                <div class="section-title">
+                    <span class="section-icon">📝</span>
+                    输入文档
+                </div>
+                <textarea id="input" placeholder="请在此处粘贴您的功能单据文本...
+
+支持格式：
+【类别】功能名称
+或者
+普通功能名称（将归类到"其他"）"></textarea>
+            </div>
+
+            <div class="output-section">
+                <div class="section-title">
+                    <span class="section-icon">📊</span>
+                    分类结果
+                </div>
+                <textarea id="output" readonly placeholder="处理后的分类结果将在此显示..."></textarea>
+            </div>
+        </div>
+
+        <div class="button-group">
+            <button class="btn btn-primary" onclick="processDocument()">
+                🔄 处理文档
+            </button>
+            <button class="btn btn-secondary" onclick="clearAll()">
+                🗑️ 清空
+            </button>
+            <button class="btn btn-success" onclick="copyResult()">
+                📋 复制结果
+            </button>
+            <button class="btn btn-success" onclick="downloadResult()">
+                💾 下载文件
+            </button>
+        </div>
+
+        <div class="stats" id="stats" style="display: none;">
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-number" id="totalCategories">0</div>
+                    <div class="stat-label">类别数量</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number" id="totalFunctions">0</div>
+                    <div class="stat-label">功能总数</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number" id="categorizedFunctions">0</div>
+                    <div class="stat-label">已分类功能</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-number" id="otherFunctions">0</div>
+                    <div class="stat-label">其他功能</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+        function processDocument() {
+            const input = document.getElementById('input').value.trim();
+            if (!input) {
+                showToast('请先输入文档内容', 'error');
+                return;
+            }
+
+            try {
+                const result = processFunctionDocuments(input);
+                document.getElementById('output').value = result.output;
+                updateStats(result.stats);
+                showToast('文档处理完成！');
+            } catch (error) {
+                showToast('处理失败：' + error.message, 'error');
+            }
+        }
+
+        function processFunctionDocuments(content) {
+            // 使用正则表达式匹配功能单据
+            const pattern = /【(.*?)】([^\n]+)/g;
+            const matches = [];
+            let match;
+            
+            while ((match = pattern.exec(content)) !== null) {
+                matches.push({
+                    category: match[1].trim(),
+                    functionName: match[2].trim()
+                });
+            }
+
+            // 按类别分类
+            const categories = {};
+            
+            // 处理有【】符号的功能单据
+            matches.forEach(({ category, functionName }) => {
+                if (!categories[category]) {
+                    categories[category] = [];
+                }
+                categories[category].push(functionName);
+            });
+
+            // 提取没有【】符号的行（其他功能单据）
+            const lines = content.split('\n');
+            const otherFunctions = [];
+            
+            lines.forEach(line => {
+                line = line.trim();
+                if (line && !line.match(/【.*?】/)) {
+                    // 检查是否已经被匹配过（避免重复）
+                    const isMatched = matches.some(({ functionName }) => 
+                        line === functionName.trim()
+                    );
+                    if (!isMatched) {
+                        otherFunctions.push(line);
+                    }
+                }
+            });
+
+            // 添加其他类别
+            if (otherFunctions.length > 0) {
+                categories['其他'] = otherFunctions;
+            }
+
+            // 生成格式化输出
+            const outputLines = [];
+            let totalFunctions = 0;
+            let categorizedFunctions = 0;
+
+            Object.entries(categories).forEach(([category, functions]) => {
+                // 添加类别标题
+                outputLines.push(`${category}及其子功能单据${functions.length}个`);
+                
+                // 添加序号功能列表
+                functions.forEach((func, index) => {
+                    if (category === '其他') {
+                        outputLines.push(` ${index + 1}、${func}`);
+                    } else {
+                        outputLines.push(` ${index + 1}、【${category}】${func}`);
+                        categorizedFunctions++;
+                    }
+                });
+                
+                // 添加空行分隔
+                outputLines.push('');
+                totalFunctions += functions.length;
+            });
+
+            // 移除最后的空行
+            if (outputLines.length > 0 && outputLines[outputLines.length - 1] === '') {
+                outputLines.pop();
+            }
+
+            const stats = {
+                totalCategories: Object.keys(categories).length,
+                totalFunctions: totalFunctions,
+                categorizedFunctions: categorizedFunctions,
+                otherFunctions: otherFunctions.length
+            };
+
+            return {
+                output: outputLines.join('\n'),
+                stats: stats
+            };
+        }
+
+        function updateStats(stats) {
+            document.getElementById('totalCategories').textContent = stats.totalCategories;
+            document.getElementById('totalFunctions').textContent = stats.totalFunctions;
+            document.getElementById('categorizedFunctions').textContent = stats.categorizedFunctions;
+            document.getElementById('otherFunctions').textContent = stats.otherFunctions;
+            document.getElementById('stats').style.display = 'block';
+        }
+
+        function clearAll() {
+            document.getElementById('input').value = '';
+            document.getElementById('output').value = '';
+            document.getElementById('stats').style.display = 'none';
+            showToast('已清空所有内容');
+        }
+
+        function copyResult() {
+            const output = document.getElementById('output').value;
+            if (!output) {
+                showToast('没有可复制的内容', 'error');
+                return;
+            }
+
+            navigator.clipboard.writeText(output).then(() => {
+                showToast('结果已复制到剪贴板！');
+            }).catch(() => {
+                // 降级方案
+                const textarea = document.getElementById('output');
+                textarea.select();
+                document.execCommand('copy');
+                showToast('结果已复制到剪贴板！');
+            });
+        }
+
+        function downloadResult() {
+            const output = document.getElementById('output').value;
+            if (!output) {
+                showToast('没有可下载的内容', 'error');
+                return;
+            }
+
+            const blob = new Blob([output], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'function_documents_sorted.txt';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showToast('文件下载已开始！');
+        }
+
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = 'toast show';
+            
+            if (type === 'error') {
+                toast.style.background = '#dc3545';
+            } else {
+                toast.style.background = '#28a745';
+            }
+
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        // 示例数据加载
+        function loadExample() {
+            const exampleData = `【GM】PVETest关卡选择，需要支持读取pve_section_config
+【英雄装备】替换装备的时候需要支持脱下后穿戴
+【英雄装备】替换正在被其他英雄穿戴的装备时先弹出对比界面然后直接替换
+【演习室】防守阵容推荐设置优化-预制
+【演习室】防守阵容推荐设置优化-UI-推荐图标和位置
+pveboss关战力推荐挑战，pve关卡卡点具体到每个boss
+打野怪重伤率提升到千分之1
+【GM】客户端增加协议录制、回放的功能
+pve失败推荐，建筑升级前五章放到第一位`;
+            
+            document.getElementById('input').value = exampleData;
+        }
+
+        // 页面加载完成后加载示例
+        window.addEventListener('load', () => {
+            // 可以选择是否自动加载示例
+            // loadExample();
+        });
+    </script>
+</body>
+</html>

@@ -59,6 +59,12 @@ jobs:
             cp -r timestamp-converter/* _site/timestamp-converter/
           fi
 
+          # Copy documents
+          if [ -d "documents" ]; then
+            mkdir -p _site/documents
+            cp -r documents/* _site/documents/
+          fi
+
           # Copy json-converter built files
           if [ -d "json-converter/dist" ]; then
             mkdir -p _site/json-converter
