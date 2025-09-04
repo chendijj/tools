@@ -42,20 +42,34 @@ jobs:
 
       - name: Prepare deployment structure
         run: |
-          # Create the tools/json-converter directory structure
-          mkdir -p tools/json-converter
-          # Copy built files to the correct location
-          cp -r json-converter/dist/* tools/json-converter/
-          # Copy other files if they exist
-          cp -r *.html . 2>/dev/null || echo "No root HTML files"
-          # Show the structure
+          # Create deployment directory
+          mkdir -p _site
+
+          # Copy main index.html to root
+          if [ -f "index.html" ]; then
+            cp index.html _site/
+          fi
+
+          # Copy timestamp-converter
+          if [ -d "timestamp-converter" ]; then
+            mkdir -p _site/timestamp-converter
+            cp -r timestamp-converter/* _site/timestamp-converter/
+          fi
+
+          # Copy json-converter built files
+          if [ -d "json-converter/dist" ]; then
+            mkdir -p _site/json-converter
+            cp -r json-converter/dist/* _site/json-converter/
+          fi
+
+          # Show the deployment structure
           echo "Deployment structure:"
-          find . -name "*.html" -o -name "*.js" -o -name "*.css" | head -20
+          find _site -type f | head -20
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: '.'
+          path: '_site'
 
       - name: Deploy to GitHub Pages
         id: deployment
