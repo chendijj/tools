@@ -40,6 +40,18 @@ jobs:
       - name: Setup Pages
         uses: actions/configure-pages@v4
 
+      - name: Prepare deployment structure
+        run: |
+          # Create the tools/json-converter directory structure
+          mkdir -p tools/json-converter
+          # Copy built files to the correct location
+          cp -r json-converter/dist/* tools/json-converter/
+          # Copy other files if they exist
+          cp -r *.html . 2>/dev/null || echo "No root HTML files"
+          # Show the structure
+          echo "Deployment structure:"
+          find . -name "*.html" -o -name "*.js" -o -name "*.css" | head -20
+
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
