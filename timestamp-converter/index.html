@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>时间戳转换</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🕐</text></svg>">
+</head>
+<body>
+    <div class="container">
+        <!-- 标题栏 -->
+        <header class="header">
+            <div class="title-bar">
+                <div class="title-left">
+                    <span class="icon">🕐</span>
+                    <h1>时间戳转换</h1>
+                </div>
+            </div>
+        </header>
+
+        <!-- 主要内容区域 -->
+        <main class="main-content">
+            <!-- 时间精度选择和时区选择 -->
+            <div class="top-controls">
+                <div class="precision-selector">
+                    <button class="precision-btn" data-precision="nanosecond">纳秒</button>
+                    <button class="precision-btn" data-precision="millisecond">毫秒</button>
+                    <button class="precision-btn active" data-precision="second">秒</button>
+                </div>
+                
+                <div class="timezone-selector">
+                    <select id="timezone-select">
+                        <!-- 按时区顺序排列：UTC-12 到 UTC+13 -->
+                        <option value="Pacific/Kwajalein">UTC-12:00 | 夸贾林</option>
+                        <option value="Pacific/Midway">UTC-11:00 | 中途岛</option>
+                        <option value="Pacific/Honolulu">UTC-10:00 | 檀香山</option>
+                        <option value="America/Anchorage">UTC-09:00 | 安克雷奇</option>
+                        <option value="America/Los_Angeles">UTC-08:00 | 洛杉矶</option>
+                        <option value="America/Denver">UTC-07:00 | 丹佛</option>
+                        <option value="America/Chicago">UTC-06:00 | 芝加哥</option>
+                        <option value="America/New_York">UTC-05:00 | 纽约</option>
+                        <option value="America/Caracas">UTC-04:00 | 加拉加斯</option>
+                        <option value="America/Sao_Paulo">UTC-03:00 | 圣保罗</option>
+                        <option value="America/Noronha">UTC-02:00 | 费尔南多</option>
+                        <option value="Atlantic/Azores">UTC-01:00 | 亚速尔</option>
+                        <option value="UTC">UTC+00:00 | UTC</option>
+                        <option value="Europe/London">UTC+00:00 | 伦敦</option>
+                        <option value="Europe/Paris">UTC+01:00 | 巴黎</option>
+                        <option value="Europe/Athens">UTC+02:00 | 雅典</option>
+                        <option value="Europe/Moscow">UTC+03:00 | 莫斯科</option>
+                        <option value="Asia/Dubai">UTC+04:00 | 迪拜</option>
+                        <option value="Asia/Karachi">UTC+05:00 | 卡拉奇</option>
+                        <option value="Asia/Dhaka">UTC+06:00 | 达卡</option>
+                        <option value="Asia/Bangkok">UTC+07:00 | 曼谷</option>
+                        <option value="Asia/Shanghai" selected>UTC+08:00 | 北京</option>
+                        <option value="Asia/Tokyo">UTC+09:00 | 东京</option>
+                        <option value="Australia/Sydney">UTC+10:00 | 悉尼</option>
+                        <option value="Pacific/Noumea">UTC+11:00 | 努美阿</option>
+                        <option value="Pacific/Auckland">UTC+12:00 | 奥克兰</option>
+                        <option value="Pacific/Tongatapu">UTC+13:00 | 努库阿洛法</option>
+                    </select>
+                    <button class="info-btn" title="时区信息">ⓘ</button>
+                </div>
+                
+                <div class="theme-toggle">
+                    <button id="theme-toggle" title="切换主题">☀️</button>
+                </div>
+            </div>
+
+            <!-- 日期转时间戳 -->
+            <section class="converter-section">
+                <h2>日期 → (北京) 时间戳:</h2>
+                <div class="input-group">
+                    <input type="date" id="date-input" placeholder="请选择日期">
+                    <input type="time" id="time-input" placeholder="请选择时间" step="1" value="00:00:00">
+                    <button class="convert-btn" id="date-to-timestamp">转换</button>
+                </div>
+                <div class="result-display" id="date-result">
+                    <span class="result-label">时间戳:</span>
+                    <span class="result-value" id="timestamp-output">-</span>
+                    <button class="copy-btn" id="copy-timestamp" title="复制">📋</button>
+                </div>
+            </section>
+
+            <!-- 时间戳转日期 -->
+            <section class="converter-section">
+                <h2>时间戳 → (北京) 日期</h2>
+                <div class="input-group">
+                    <input type="text" id="timestamp-input" placeholder="请输入时间戳">
+                    <button class="convert-btn" id="timestamp-to-date">转换</button>
+                </div>
+                <div class="result-display" id="timestamp-result">
+                    <span class="result-label">日期:</span>
+                    <span class="result-value" id="date-output">-</span>
+                    <button class="copy-btn" id="copy-date" title="复制">📋</button>
+                </div>
+            </section>
+
+            <!-- 当前时间戳 -->
+            <section class="current-timestamp-section">
+                <h2>当前时间戳:</h2>
+                <div class="current-timestamp-display">
+                    <span class="current-timestamp" id="current-timestamp" title="点击复制">1757002571</span>
+                    <div class="timestamp-controls">
+                        <button class="control-btn pause" id="pause-btn" title="暂停">⏸</button>
+                        <button class="control-btn refresh" id="refresh-btn" title="重置数据">🔄</button>
+                    </div>
+                </div>
+                <div class="current-date-display">
+                    <span id="current-date">2025年9月5日 00:24:31</span>
+                </div>
+
+                <!-- 快速操作面板 -->
+                <div class="quick-actions">
+                    <button class="quick-btn" id="fill-current-timestamp" title="填入当前时间戳">
+                        📝 填入当前时间戳
+                    </button>
+                    <button class="quick-btn" id="fill-current-date" title="填入当前日期">
+                        📅 填入当前日期
+                    </button>
+                    <button class="quick-btn" id="clear-all" title="清空所有输入">
+                        🗑️ 清空
+                    </button>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
