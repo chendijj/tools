@@ -1,0 +1,153 @@
+{% extends "base.html" %} {% block title %}🗂️ 局域网文件分享工具{% endblock %}
+{% block content %}
+<header class="header">
+  <div class="title-section">
+    <div class="title-left">
+      <span class="icon">🗂️</span>
+      <h1>局域网文件分享工具</h1>
+    </div>
+
+    <div class="server-info">
+      <div class="server-url-section">
+        <div class="url-display">
+          <span id="server-url">{{ server_url }}</span>
+          <button class="copy-btn" onclick="copyServerUrl()" title="复制地址">
+            📋
+          </button>
+        </div>
+      </div>
+
+      <div class="qr-section">
+        <button class="qr-btn" onclick="toggleQRCode()" title="显示二维码">
+          📱
+        </button>
+        <div
+          id="qr-code-container"
+          class="qr-code-container"
+          style="display: none"
+        >
+          <img
+            id="qr-code"
+            src="data:image/png;base64,{{ qr_code }}"
+            alt="二维码"
+          />
+          <p>扫码访问</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p class="subtitle">简单快捷的文件分享和文本编辑工具</p>
+</header>
+
+<main class="main-content">
+  <!-- 文件上传区域 -->
+  <section class="upload-section">
+    <div class="section-header">
+      <h2>📤 文件上传</h2>
+    </div>
+    <div class="section-content">
+      <div class="upload-area" id="upload-area">
+        <div class="upload-content">
+          <span class="upload-icon">📁</span>
+          <p class="upload-text">拖拽文件到此处或点击选择文件</p>
+          <p class="upload-hint">支持多文件上传，单文件最大100MB</p>
+          <input type="file" id="file-input" multiple hidden />
+          <button
+            class="upload-btn"
+            onclick="document.getElementById('file-input').click()"
+          >
+            选择文件
+          </button>
+        </div>
+      </div>
+
+      <div class="upload-progress" id="upload-progress" style="display: none">
+        <div class="progress-bar">
+          <div class="progress-fill" id="progress-fill"></div>
+        </div>
+        <span class="progress-text" id="progress-text">上传中...</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 文本编辑器 -->
+  <section class="text-editor-section">
+    <div class="section-header">
+      <h2>📝 文本编辑器</h2>
+    </div>
+    <div class="section-content">
+      <div class="editor-controls">
+        <input
+          type="text"
+          id="text-filename"
+          placeholder="文件名.txt"
+          value="新建文本.txt"
+        />
+        <button class="btn btn-primary" onclick="saveTextFile()">
+          💾 保存
+        </button>
+        <button class="btn btn-secondary" onclick="clearEditor()">
+          🗑️ 清空
+        </button>
+      </div>
+      <textarea id="text-editor" placeholder="在此输入文本内容..."></textarea>
+    </div>
+  </section>
+
+  <!-- 文件列表 -->
+  <section class="file-list-section">
+    <div class="section-header">
+      <h2>📁 文件列表</h2>
+      <div class="list-controls">
+        <span id="storage-info" class="storage-info">加载中...</span>
+        <button class="btn btn-secondary" onclick="refreshFileList()">
+          🔄 刷新
+        </button>
+        <button class="btn btn-danger" onclick="clearAllFiles()">
+          🗑️ 清空所有
+        </button>
+        <button class="btn btn-warning" onclick="manualCleanup()">
+          🧹 清理过期
+        </button>
+      </div>
+    </div>
+
+    <div class="section-content">
+      <div class="file-list" id="file-list">
+        <div class="loading-message">正在加载文件列表...</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 文件预览模态框 -->
+  <div id="preview-modal" class="modal" style="display: none">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="preview-title">文件预览</h3>
+        <button class="close-btn" onclick="closePreviewModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="preview-content"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closePreviewModal()">
+          关闭
+        </button>
+      </div>
+    </div>
+  </div>
+  {% endblock %} {% block scripts %}
+  <script>
+    // 页面加载完成后初始化
+    document.addEventListener("DOMContentLoaded", function () {
+      initializeApp();
+    });
+
+    // 传递服务器信息到JavaScript
+    window.serverInfo = {
+      url: "{{ server_url }}",
+      localIp: "{{ local_ip }}",
+    };
+  </script>
+</main>
+{% endblock %}
