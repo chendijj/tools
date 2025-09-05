@@ -49,15 +49,27 @@
       <div class="upload-area" id="upload-area">
         <div class="upload-content">
           <span class="upload-icon">📁</span>
-          <p class="upload-text">拖拽文件到此处或点击选择文件</p>
-          <p class="upload-hint">支持多文件上传，单文件最大100MB</p>
+          <p class="upload-text">拖拽文件/文件夹到此处或点击选择</p>
+          <p class="upload-hint">支持多文件和文件夹上传，单文件最大100MB</p>
+          <p class="upload-hint">💡 文件夹上传将保持目录结构，下载时可按文件夹打包</p>
           <input type="file" id="file-input" multiple hidden />
-          <button
-            class="upload-btn"
-            onclick="document.getElementById('file-input').click()"
-          >
-            选择文件
-          </button>
+          <input type="file" id="folder-input" webkitdirectory="true" multiple hidden />
+          <div class="upload-buttons">
+            <button
+              class="upload-btn"
+              id="select-files-btn"
+              title="选择一个或多个文件上传"
+            >
+              📄 选择文件
+            </button>
+            <button
+              class="upload-btn upload-btn-secondary"
+              id="select-folder-btn"
+              title="选择整个文件夹上传，保持文件夹结构"
+            >
+              📁 选择文件夹
+            </button>
+          </div>
         </div>
       </div>
 
@@ -106,13 +118,13 @@
         <button class="btn btn-danger" onclick="clearAllFiles()">
           🗑️ 清空所有
         </button>
-        <button class="btn btn-warning" onclick="manualCleanup()">
-          🧹 清理过期
-        </button>
       </div>
     </div>
 
     <div class="section-content">
+      <div class="folder-list" id="folder-list">
+        <!-- 文件夹列表将在这里显示 -->
+      </div>
       <div class="file-list" id="file-list">
         <div class="loading-message">正在加载文件列表...</div>
       </div>

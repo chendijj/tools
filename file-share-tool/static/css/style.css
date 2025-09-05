@@ -212,6 +212,13 @@ section {
     margin-bottom: 16px;
 }
 
+.upload-buttons {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    margin-top: 16px;
+}
+
 .upload-btn {
     background: var(--accent-color);
     color: white;
@@ -221,10 +228,40 @@ section {
     font-size: 14px;
     cursor: pointer;
     transition: var(--transition);
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
 }
 
 .upload-btn:hover {
     background: var(--accent-hover);
+    transform: translateY(-1px);
+}
+
+.upload-btn:active {
+    transform: translateY(0);
+}
+
+.upload-btn-secondary {
+    background: var(--text-secondary);
+}
+
+.upload-btn-secondary:hover {
+    background: var(--text-primary);
+}
+
+.upload-btn:disabled {
+    background: var(--border-color) !important;
+    color: var(--text-secondary) !important;
+    cursor: not-allowed !important;
+    transform: none !important;
+    opacity: 0.6 !important;
+}
+
+.upload-btn:disabled:hover {
+    background: var(--border-color) !important;
+    transform: none !important;
 }
 
 /* 进度条 */
@@ -416,6 +453,73 @@ section {
     border-bottom: none;
 }
 
+/* 文件夹样式 */
+.folder-list {
+    margin-bottom: 20px;
+}
+
+.folder-list h3 {
+    margin: 0 0 12px 0;
+    color: var(--text-primary);
+    font-size: 1.1em;
+    font-weight: 600;
+}
+
+.folder-item {
+    display: flex;
+    align-items: center;
+    padding: 12px 16px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    margin-bottom: 8px;
+    background: var(--bg-secondary);
+    transition: var(--transition);
+}
+
+.folder-item:hover {
+    background: var(--bg-tertiary);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.folder-icon {
+    font-size: 1.4em;
+    margin-right: 12px;
+    width: 28px;
+    text-align: center;
+    color: var(--accent-color);
+}
+
+.folder-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.folder-name {
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+    word-break: break-word;
+}
+
+.folder-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    font-size: 0.85em;
+    color: var(--text-secondary);
+}
+
+.folder-meta span {
+    white-space: nowrap;
+}
+
+.folder-actions {
+    display: flex;
+    gap: 8px;
+    margin-left: 12px;
+}
+
 .file-icon {
     font-size: 1.2em;
     margin-right: 12px;
@@ -443,6 +547,12 @@ section {
     display: flex;
     gap: 12px;
     flex-wrap: wrap;
+}
+
+.file-path {
+    color: var(--accent-color);
+    font-style: italic;
+    font-weight: 500;
 }
 
 .file-actions {
@@ -551,8 +661,10 @@ section {
 .modal-content {
     background: white;
     border-radius: 15px;
-    max-width: 90%;
-    max-height: 90%;
+    max-width: 95%;
+    max-height: 95%;
+    min-width: 600px;
+    min-height: 500px;
     overflow: hidden;
     display: flex;
     flex-direction: column;
@@ -607,14 +719,16 @@ section {
 
 #preview-content pre {
     background: #f8f9fa;
-    padding: 15px;
+    padding: 20px;
     border-radius: 8px;
     overflow: auto;
     white-space: pre-wrap;
     word-wrap: break-word;
     font-family: 'Courier New', monospace;
     font-size: 14px;
-    line-height: 1.5;
+    line-height: 1.6;
+    min-height: 400px;
+    max-height: 70vh;
 }
 
 #preview-content img {
@@ -670,9 +784,172 @@ section {
     .upload-area {
         padding: 30px 20px;
     }
-    
-    .modal-content {
-        max-width: 95%;
-        max-height: 95%;
+
+    .upload-buttons {
+        flex-direction: column;
+        gap: 8px;
     }
+
+    .modal-content {
+        max-width: 98%;
+        max-height: 98%;
+        min-width: 90%;
+        min-height: 70%;
+    }
+
+    .folder-modal {
+        width: 95vw;
+        height: 90vh;
+    }
+
+    .modal-header,
+    .modal-body,
+    .modal-footer {
+        padding: 15px;
+    }
+}
+
+/* 文件夹模态框样式 */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.folder-modal {
+    width: 800px;
+    background: white;
+    border-radius: var(--border-radius);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    max-width: 90vw;
+    max-height: 90vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid #ddd;
+}
+
+.modal-header {
+    padding: 20px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--accent-color);
+    color: white;
+}
+
+.modal-header h3 {
+    margin: 0;
+    font-size: 18px;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 24px;
+    cursor: pointer;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: background-color 0.2s;
+}
+
+.modal-close:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.modal-body {
+    padding: 20px;
+    overflow-y: auto;
+    flex: 1;
+    background: white;
+    color: #333;
+}
+
+.modal-footer {
+    padding: 20px;
+    border-top: 1px solid #ddd;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    background: #f8f9fa;
+}
+
+.folder-file-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.folder-file-list .file-item {
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    padding: 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.folder-file-list .file-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+}
+
+.folder-file-list .file-icon {
+    font-size: 20px;
+    width: 24px;
+    text-align: center;
+}
+
+.folder-file-list .file-details {
+    flex: 1;
+}
+
+.folder-file-list .file-name {
+    font-weight: 500;
+    color: #333;
+    margin-bottom: 4px;
+}
+
+.folder-file-list .file-meta {
+    font-size: 12px;
+    color: #666;
+}
+
+.folder-file-list .file-actions {
+    display: flex;
+    gap: 8px;
+}
+
+/* 文件夹项样式 */
+.file-item.folder-item {
+    background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+    border-color: #f39c12;
+}
+
+.file-item.folder-item:hover {
+    background: linear-gradient(135deg, #ffeaa7 0%, #fdcb6e 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(243, 156, 18, 0.3);
+}
+
+.file-item.folder-item .file-icon {
+    font-size: 24px;
+    color: #f39c12;
 }

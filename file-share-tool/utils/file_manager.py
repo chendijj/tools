@@ -2,6 +2,8 @@ import os
 import json
 import uuid
 import mimetypes
+import zipfile
+import tempfile
 from datetime import datetime, timedelta
 from werkzeug.utils import secure_filename
 
@@ -22,48 +24,59 @@ class FileManager:
     
     def allowed_file(self, filename):
         """检查文件是否允许上传"""
-        return '.' in filename and \
-               filename.rsplit('.', 1)[1].lower() in self.allowed_extensions
+        # 允许所有文件类型，包括没有扩展名的文件
+        if not filename or filename.startswith('.'):
+            return False
+        return True
     
     def get_file_extension(self, filename):
         """获取文件扩展名"""
-        return filename.rsplit('.', 1)[1].lower() if '.' in filename else ''
+        return filename.rsplit('.', 1)[1].lower() if '.' in filename else 'bin'
     
     def get_file_type(self, filename):
         """获取文件MIME类型"""
         mime_type, _ = mimetypes.guess_type(filename)
         return mime_type or 'application/octet-stream'
     
-    def save_file(self, file):
+    def save_file(self, file, relative_path=None):
         """保存上传的文件"""
         if file and self.allowed_file(file.filename):
             file_id = str(uuid.uuid4())
-            original_filename = secure_filename(file.filename)
-            file_extension = self.get_file_extension(original_filename)
+
+            # 使用相对路径或原始文件名
+            if relative_path:
+                original_filename = relative_path
+                display_name = relative_path
+            else:
+                original_filename = secure_filename(file.filename)
+                display_name = original_filename
+
+            file_extension = self.get_file_extension(os.path.basename(original_filename))
             stored_filename = f"{file_id}.{file_extension}"
             file_path = os.path.join(self.upload_folder, stored_filename)
-            
+
             # 保存文件
             file.save(file_path)
-            
+
             # 获取文件信息
             file_size = os.path.getsize(file_path)
             upload_time = datetime.now()
             expire_time = upload_time + timedelta(hours=self.expire_hours)
-            
+
             # 创建元数据
             metadata = {
                 'id': file_id,
-                'original_name': original_filename,
+                'original_name': display_name,
                 'stored_name': stored_filename,
                 'file_path': os.path.normpath(file_path),
                 'file_size': file_size,
-                'file_type': self.get_file_type(original_filename),
+                'file_type': self.get_file_type(os.path.basename(original_filename)),
                 'file_extension': file_extension,
                 'upload_time': upload_time.isoformat(),
-                'expire_time': expire_time.isoformat()
+                'expire_time': expire_time.isoformat(),
+                'relative_path': relative_path or original_filename
             }
-            
+
             # 保存元数据
             self.save_metadata(metadata)
             return file_id, metadata
@@ -195,9 +208,64 @@ class FileManager:
         metadata_dict = self.load_metadata()
         total_files = len(metadata_dict)
         total_size = sum(metadata.get('file_size', 0) for metadata in metadata_dict.values())
-        
+
         return {
             'total_files': total_files,
             'total_size': total_size,
             'total_size_mb': round(total_size / (1024 * 1024), 2)
         }
+
+    def get_folder_structure(self):
+        """获取文件夹结构"""
+        metadata_dict = self.load_metadata()
+        folders = {}
+
+        for file_id, metadata in metadata_dict.items():
+            # 检查文件是否仍然存在且未过期
+            if os.path.exists(metadata['file_path']):
+                expire_time = datetime.fromisoformat(metadata['expire_time'])
+                if datetime.now() < expire_time:
+                    relative_path = metadata.get('relative_path', metadata['original_name'])
+
+                    # 提取文件夹路径
+                    if '/' in relative_path or '\\' in relative_path:
+                        # 标准化路径分隔符
+                        normalized_path = relative_path.replace('\\', '/')
+                        # 使用顶级文件夹名称作为键
+                        folder_name = normalized_path.split('/')[0]
+
+                        if folder_name not in folders:
+                            folders[folder_name] = []
+                        folders[folder_name].append(metadata)
+
+        return folders
+
+    def create_folder_zip(self, folder_path):
+        """为指定文件夹创建ZIP文件"""
+        folders = self.get_folder_structure()
+
+        if folder_path not in folders:
+            return None
+
+        # 创建临时ZIP文件
+        temp_dir = tempfile.gettempdir()
+        zip_filename = f"folder_{uuid.uuid4().hex[:8]}.zip"
+        zip_path = os.path.join(temp_dir, zip_filename)
+
+        try:
+            with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+                for file_metadata in folders[folder_path]:
+                    file_path = file_metadata['file_path']
+                    if os.path.exists(file_path):
+                        # 在ZIP中保持相对路径结构
+                        relative_path = file_metadata.get('relative_path', file_metadata['original_name'])
+                        # 标准化路径分隔符
+                        archive_name = relative_path.replace('\\', '/')
+                        zipf.write(file_path, archive_name)
+
+            return zip_path
+        except Exception as e:
+            # 如果创建失败，删除临时文件
+            if os.path.exists(zip_path):
+                os.remove(zip_path)
+            raise e

@@ -23,8 +23,20 @@ class Config:
         'png', 'jpg', 'jpeg', 'gif', 'bmp', 'svg', 'webp',
         # 压缩文件
         'zip', 'rar', '7z', 'tar', 'gz',
-        # 其他
-        'mp3', 'mp4', 'avi', 'mov', 'wav'
+        # 可执行文件
+        'exe', 'msi', 'bat', 'cmd', 'sh', 'app', 'dmg', 'deb', 'rpm',
+        # 库文件
+        'dll', 'so', 'dylib', 'lib', 'a',
+        # 配置文件
+        'ini', 'cfg', 'conf', 'properties', 'yaml', 'yml', 'toml',
+        # 开发文件
+        'c', 'cpp', 'h', 'hpp', 'java', 'class', 'jar', 'war',
+        # 数据文件
+        'db', 'sqlite', 'sql', 'bak',
+        # 媒体文件
+        'mp3', 'mp4', 'avi', 'mov', 'wav', 'flv', 'mkv', 'wmv',
+        # 其他常见文件
+        'bin', 'dat', 'tmp', 'cache', 'lock'
     }
     
     # 可预览的文件类型

@@ -82,17 +82,22 @@ def upload_file():
     try:
         if 'files' not in request.files:
             return jsonify({'success': False, 'message': '没有选择文件'}), 400
-        
+
         files = request.files.getlist('files')
+        paths = request.form.getlist('paths')  # 获取文件路径信息
+
         if not files or all(file.filename == '' for file in files):
             return jsonify({'success': False, 'message': '没有选择文件'}), 400
-        
+
         uploaded_files = []
         failed_files = []
-        
-        for file in files:
+
+        for i, file in enumerate(files):
             if file and file.filename != '':
-                file_id, metadata = file_manager.save_file(file)
+                # 获取对应的路径信息
+                relative_path = paths[i] if i < len(paths) else None
+
+                file_id, metadata = file_manager.save_file(file, relative_path)
                 if file_id:
                     uploaded_files.append({
                         'id': file_id,
@@ -100,21 +105,21 @@ def upload_file():
                         'size': format_file_size(metadata['file_size'])
                     })
                 else:
-                    failed_files.append(file.filename)
-        
+                    failed_files.append(relative_path or file.filename)
+
         if uploaded_files:
             message = f"成功上传 {len(uploaded_files)} 个文件"
             if failed_files:
                 message += f"，{len(failed_files)} 个文件上传失败"
             return jsonify({
-                'success': True, 
+                'success': True,
                 'message': message,
                 'uploaded_files': uploaded_files,
                 'failed_files': failed_files
             })
         else:
             return jsonify({'success': False, 'message': '所有文件上传失败'}), 400
-            
+
     except RequestEntityTooLarge:
         return jsonify({'success': False, 'message': '文件太大，请检查服务器配置'}), 413
     except Exception as e:
@@ -122,14 +127,126 @@ def upload_file():
 
 @app.route('/api/files')
 def list_files():
-    """获取文件列表API"""
+    """获取文件列表API - 返回根目录文件和文件夹"""
     try:
         files = file_manager.get_file_list()
+        folders = file_manager.get_folder_structure()
         storage_info = file_manager.get_storage_info()
-        
-        # 格式化文件信息
+
+        # 格式化文件信息，包括根目录文件和文件夹
         formatted_files = []
+
+        # 首先添加所有文件夹
+        for folder_name, folder_files in folders.items():
+            if folder_files:  # 确保文件夹不为空
+                total_size = sum(f['file_size'] for f in folder_files)
+                file_count = len(folder_files)
+
+                # 获取文件夹的最早上传时间
+                upload_times = [f['upload_time'] for f in folder_files]
+                earliest_time = min(upload_times) if upload_times else folder_files[0]['upload_time']
+
+                # 获取过期时间（使用最晚的过期时间）
+                expire_times = [f['expire_time'] for f in folder_files]
+                latest_expire_time = max(expire_times) if expire_times else folder_files[0]['expire_time']
+
+                formatted_files.append({
+                    'id': f'folder_{folder_name}',
+                    'name': folder_name,
+                    'size': format_file_size(total_size),
+                    'size_bytes': total_size,
+                    'type': 'folder',
+                    'extension': 'folder',
+                    'upload_time': earliest_time,
+                    'expire_time': latest_expire_time,
+                    'is_text': False,
+                    'is_image': False,
+                    'is_text_file': False,
+                    'is_folder': True,
+                    'file_count': file_count,
+                    'folder_path': folder_name,
+                    'relative_path': folder_name
+                })
+
+        # 然后添加根目录文件
         for file_info in files:
+            relative_path = file_info.get('relative_path', file_info['original_name'])
+
+            # 只处理根目录文件（不在文件夹中的文件）
+            if not ('/' in relative_path or '\\' in relative_path):
+                formatted_files.append({
+                    'id': file_info['id'],
+                    'name': file_info['original_name'],
+                    'size': format_file_size(file_info['file_size']),
+                    'size_bytes': file_info['file_size'],
+                    'type': file_info['file_type'],
+                    'extension': file_info['file_extension'],
+                    'upload_time': file_info['upload_time'],
+                    'expire_time': file_info['expire_time'],
+                    'is_text': file_info['file_extension'] in app.config['PREVIEWABLE_EXTENSIONS'],
+                    'is_image': file_info['file_extension'] in app.config['IMAGE_EXTENSIONS'],
+                    'is_text_file': file_info.get('is_text_file', False),
+                    'is_folder': False,
+                    'relative_path': relative_path
+                })
+
+        # 按上传时间排序
+        formatted_files.sort(key=lambda x: x['upload_time'], reverse=True)
+
+        return jsonify({
+            'success': True,
+            'files': formatted_files,
+            'storage_info': {
+                'total_files': storage_info['total_files'],
+                'total_size': format_file_size(storage_info['total_size'])
+            }
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'获取文件列表失败: {str(e)}'}), 500
+
+@app.route('/api/folders')
+def get_folders():
+    """获取文件夹列表API"""
+    try:
+        folders = file_manager.get_folder_structure()
+
+        # 格式化文件夹信息
+        formatted_folders = []
+        for folder_path, files in folders.items():
+            if folder_path:  # 只显示有文件夹路径的
+                total_size = sum(file_info['file_size'] for file_info in files)
+                formatted_folder = {
+                    'path': folder_path,
+                    'name': folder_path.split('/')[-1] if '/' in folder_path else folder_path,
+                    'file_count': len(files),
+                    'total_size': format_file_size(total_size),
+                    'files': [f['original_name'] for f in files[:3]]  # 显示前3个文件名
+                }
+                formatted_folders.append(formatted_folder)
+
+        # 按文件夹名称排序
+        formatted_folders.sort(key=lambda x: x['name'])
+
+        return jsonify({'success': True, 'folders': formatted_folders})
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'获取文件夹列表失败: {str(e)}'}), 500
+
+@app.route('/api/folder-files/<path:folder_path>')
+def get_folder_files(folder_path):
+    """获取指定文件夹内的文件列表API"""
+    try:
+        # URL解码文件夹路径
+        from urllib.parse import unquote
+        folder_path = unquote(folder_path)
+
+        folders = file_manager.get_folder_structure()
+
+        if folder_path not in folders:
+            return jsonify({'success': False, 'message': '文件夹不存在'}), 404
+
+        # 格式化文件夹内的文件信息
+        formatted_files = []
+        for file_info in folders[folder_path]:
             formatted_files.append({
                 'id': file_info['id'],
                 'name': file_info['original_name'],
@@ -141,19 +258,21 @@ def list_files():
                 'expire_time': file_info['expire_time'],
                 'is_text': file_info['file_extension'] in app.config['PREVIEWABLE_EXTENSIONS'],
                 'is_image': file_info['file_extension'] in app.config['IMAGE_EXTENSIONS'],
-                'is_text_file': file_info.get('is_text_file', False)
+                'is_text_file': file_info.get('is_text_file', False),
+                'relative_path': file_info.get('relative_path', file_info['original_name'])
             })
-        
+
+        # 按文件名排序
+        formatted_files.sort(key=lambda x: x['name'])
+
         return jsonify({
             'success': True,
             'files': formatted_files,
-            'storage_info': {
-                'total_files': storage_info['total_files'],
-                'total_size': format_file_size(storage_info['total_size'])
-            }
+            'folder_path': folder_path,
+            'folder_name': folder_path.split('/')[-1] if '/' in folder_path else folder_path
         })
     except Exception as e:
-        return jsonify({'success': False, 'message': f'获取文件列表失败: {str(e)}'}), 500
+        return jsonify({'success': False, 'message': f'获取文件夹文件失败: {str(e)}'}), 500
 
 @app.route('/api/download/<file_id>')
 def download_file(file_id):
@@ -185,6 +304,46 @@ def download_file(file_id):
     except Exception as e:
         return jsonify({'success': False, 'message': f'下载失败: {str(e)}'}), 500
 
+@app.route('/api/download-folder/<path:folder_path>')
+def download_folder(folder_path):
+    """文件夹下载API"""
+    try:
+        # URL解码文件夹路径
+        from urllib.parse import unquote
+        folder_path = unquote(folder_path)
+
+        # 创建ZIP文件
+        zip_path = file_manager.create_folder_zip(folder_path)
+        if not zip_path:
+            return jsonify({'success': False, 'message': '文件夹不存在或为空'}), 404
+
+        # 生成下载文件名
+        folder_name = folder_path.split('/')[-1] if '/' in folder_path else folder_path
+        download_name = f"{folder_name}.zip"
+
+        def remove_file():
+            """下载完成后删除临时文件"""
+            try:
+                if os.path.exists(zip_path):
+                    os.remove(zip_path)
+            except:
+                pass
+
+        # 发送文件并在完成后删除
+        response = send_file(
+            zip_path,
+            as_attachment=True,
+            download_name=download_name,
+            mimetype='application/zip'
+        )
+
+        # 注册清理函数
+        response.call_on_close(remove_file)
+        return response
+
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'下载失败: {str(e)}'}), 500
+
 @app.route('/api/delete/<file_id>', methods=['DELETE'])
 def delete_file(file_id):
     """文件删除API"""
@@ -195,6 +354,48 @@ def delete_file(file_id):
             return jsonify({'success': False, 'message': '文件不存在'}), 404
     except Exception as e:
         return jsonify({'success': False, 'message': f'删除失败: {str(e)}'}), 500
+
+@app.route('/api/delete-folder/<path:folder_path>', methods=['DELETE'])
+def delete_folder(folder_path):
+    """文件夹删除API"""
+    try:
+        # URL解码文件夹路径
+        from urllib.parse import unquote
+        folder_path = unquote(folder_path)
+
+        folders = file_manager.get_folder_structure()
+
+        # 调试信息：打印可用的文件夹
+        print(f"尝试删除文件夹: {folder_path}")
+        print(f"可用的文件夹: {list(folders.keys())}")
+
+        if folder_path not in folders:
+            return jsonify({
+                'success': False,
+                'message': f'文件夹不存在。可用文件夹: {list(folders.keys())}'
+            }), 404
+
+        # 删除文件夹中的所有文件
+        deleted_count = 0
+        failed_count = 0
+        for file_info in folders[folder_path]:
+            if file_manager.delete_file(file_info['id']):
+                deleted_count += 1
+            else:
+                failed_count += 1
+
+        if deleted_count > 0:
+            message = f'文件夹删除成功，共删除 {deleted_count} 个文件'
+            if failed_count > 0:
+                message += f'，{failed_count} 个文件删除失败'
+            return jsonify({'success': True, 'message': message})
+        else:
+            return jsonify({'success': False, 'message': f'文件夹为空或删除失败，失败数量: {failed_count}'}), 400
+
+    except Exception as e:
+        import traceback
+        print(f"删除文件夹异常: {traceback.format_exc()}")
+        return jsonify({'success': False, 'message': f'删除文件夹失败: {str(e)}'}), 500
 
 @app.route('/api/preview/<file_id>')
 def preview_file(file_id):
