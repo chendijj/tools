@@ -1,5 +1,7 @@
 // 全局变量
 let isUploading = false;
+let selectedFiles = new Set(); // 存储选中的文件ID
+let batchMode = false; // 批量操作模式
 
 // 初始化应用
 function initializeApp() {
@@ -450,6 +452,7 @@ function displayFileList(files) {
 
     if (files.length === 0) {
         fileList.innerHTML = '<div class="empty-message">暂无文件</div>';
+        updateBatchControls();
         return;
     }
 
@@ -480,12 +483,18 @@ function displayFileList(files) {
             `;
         } else {
             // 普通文件项
-            // 显示相对路径信息
             const pathInfo = file.relative_path !== file.name ?
                 `<span class="file-path">路径: ${escapeHtml(file.relative_path)}</span>` : '';
+            
+            const isSelected = selectedFiles.has(file.id);
+            const selectedClass = isSelected ? 'selected' : '';
+            const checkboxChecked = isSelected ? 'checked' : '';
+            const batchCheckbox = batchMode ? 
+                `<input type="checkbox" class="file-checkbox" data-file-id="${file.id}" ${checkboxChecked} onchange="toggleFileSelection('${file.id}', this.checked)">` : '';
 
             html += `
-                <div class="file-item">
+                <div class="file-item ${selectedClass}" data-file-id="${file.id}">
+                    ${batchCheckbox}
                     <span class="file-icon">${getFileIcon(file.extension)}</span>
                     <div class="file-info">
                         <div class="file-name">${escapeHtml(file.name)}</div>
@@ -508,6 +517,7 @@ function displayFileList(files) {
     });
 
     fileList.innerHTML = html;
+    updateBatchControls();
 }
 
 // 更新存储信息
@@ -887,10 +897,198 @@ document.addEventListener('click', function(e) {
     }
 });
 
-// ESC键关闭模态框
+// 切换批量操作模式
+function toggleBatchMode() {
+    batchMode = !batchMode;
+    selectedFiles.clear();
+    refreshFileList();
+    updateBatchControls();
+    
+    const toggleBtn = document.getElementById('batch-mode-toggle');
+    if (toggleBtn) {
+        toggleBtn.textContent = batchMode ? '🚫 退出批量' : '☑️ 批量操作';
+        toggleBtn.className = batchMode ? 'btn btn-warning' : 'btn btn-secondary';
+    }
+}
+
+// 切换文件选择状态
+function toggleFileSelection(fileId, selected) {
+    if (selected) {
+        selectedFiles.add(fileId);
+    } else {
+        selectedFiles.delete(fileId);
+    }
+    updateBatchControls();
+    
+    // 更新视觉效果
+    const fileItem = document.querySelector(`[data-file-id="${fileId}"]`);
+    if (fileItem) {
+        if (selected) {
+            fileItem.classList.add('selected');
+        } else {
+            fileItem.classList.remove('selected');
+        }
+    }
+}
+
+// 全选/取消全选
+function toggleSelectAll() {
+    const checkboxes = document.querySelectorAll('.file-checkbox');
+    const allSelected = selectedFiles.size === checkboxes.length;
+    
+    checkboxes.forEach(checkbox => {
+        const fileId = checkbox.dataset.fileId;
+        if (allSelected) {
+            checkbox.checked = false;
+            selectedFiles.delete(fileId);
+            document.querySelector(`[data-file-id="${fileId}"]`).classList.remove('selected');
+        } else {
+            checkbox.checked = true;
+            selectedFiles.add(fileId);
+            document.querySelector(`[data-file-id="${fileId}"]`).classList.add('selected');
+        }
+    });
+    
+    updateBatchControls();
+}
+
+// 更新批量操作控件状态
+function updateBatchControls() {
+    const batchControls = document.getElementById('batch-controls');
+    if (!batchControls) return;
+    
+    const selectedCount = selectedFiles.size;
+    const hasSelection = selectedCount > 0;
+    
+    // 更新选择计数
+    const selectionCount = document.getElementById('selection-count');
+    if (selectionCount) {
+        selectionCount.textContent = `已选择 ${selectedCount} 个文件`;
+    }
+    
+    // 更新按钮状态
+    const batchDownloadBtn = document.getElementById('batch-download');
+    const batchDeleteBtn = document.getElementById('batch-delete');
+    
+    if (batchDownloadBtn) {
+        batchDownloadBtn.disabled = !hasSelection;
+        batchDownloadBtn.style.opacity = hasSelection ? '1' : '0.5';
+    }
+    
+    if (batchDeleteBtn) {
+        batchDeleteBtn.disabled = !hasSelection;
+        batchDeleteBtn.style.opacity = hasSelection ? '1' : '0.5';
+    }
+    
+    // 显示/隐藏批量控件
+    if (batchMode) {
+        batchControls.style.display = 'flex';
+    } else {
+        batchControls.style.display = 'none';
+        selectedFiles.clear();
+    }
+}
+
+// 批量下载文件
+async function batchDownloadFiles() {
+    if (selectedFiles.size === 0) {
+        showToast('请先选择要下载的文件', 'warning');
+        return;
+    }
+    
+    if (selectedFiles.size > 50) {
+        showToast('单次批量下载不能超过50个文件', 'warning');
+        return;
+    }
+    
+    showLoading(true);
+    
+    try {
+        const response = await fetch('/api/batch/download', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                file_ids: Array.from(selectedFiles)
+            })
+        });
+        
+        if (response.ok) {
+            // 处理文件下载
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = `batch_download_${new Date().getTime()}.zip`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+            
+            showToast(`成功下载 ${selectedFiles.size} 个文件`, 'success');
+        } else {
+            const result = await response.json();
+            showToast(result.message || '批量下载失败', 'error');
+        }
+    } catch (error) {
+        showToast('批量下载失败: ' + error.message, 'error');
+    } finally {
+        showLoading(false);
+    }
+}
+
+// 批量删除文件
+async function batchDeleteFiles() {
+    if (selectedFiles.size === 0) {
+        showToast('请先选择要删除的文件', 'warning');
+        return;
+    }
+    
+    if (!confirm(`确定要删除选中的 ${selectedFiles.size} 个文件吗？此操作不可恢复！`)) {
+        return;
+    }
+    
+    showLoading(true);
+    
+    try {
+        const response = await fetch('/api/batch/delete', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                file_ids: Array.from(selectedFiles)
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showToast(result.message, 'success');
+            selectedFiles.clear();
+            refreshFileList();
+        } else {
+            showToast(result.message, 'error');
+        }
+    } catch (error) {
+        showToast('批量删除失败: ' + error.message, 'error');
+    } finally {
+        showLoading(false);
+    }
+}
+
+// ESC键关闭模态框和退出批量模式
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
         closePreviewModal();
         document.getElementById('qr-code-container').style.display = 'none';
+        closeFolderModal();
+        
+        // ESC键退出批量模式
+        if (batchMode) {
+            toggleBatchMode();
+        }
     }
 });

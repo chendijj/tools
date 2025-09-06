@@ -953,3 +953,110 @@ section {
     font-size: 24px;
     color: #f39c12;
 }
+
+/* 批量操作样式 */
+.batch-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 20px;
+    background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%);
+    border: 1px solid #b39ddb;
+    border-radius: var(--border-radius);
+    margin: 0 20px 16px 20px;
+    box-shadow: 0 2px 8px rgba(103, 58, 183, 0.15);
+    transition: var(--transition);
+}
+
+.batch-controls:hover {
+    box-shadow: 0 4px 12px rgba(103, 58, 183, 0.25);
+}
+
+.batch-info {
+    color: #673ab7;
+    font-weight: 500;
+    font-size: 14px;
+}
+
+.batch-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.batch-actions .btn {
+    padding: 6px 12px;
+    font-size: 13px;
+    min-width: auto;
+}
+
+/* 文件选择框样式 */
+.file-checkbox {
+    margin-right: 12px;
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    accent-color: var(--accent-color);
+    transform: scale(1.1);
+}
+
+/* 选中的文件项样式 */
+.file-item.selected {
+    background: linear-gradient(135deg, #e8f5e8 0%, #f0f8f0 100%);
+    border-color: var(--success-color);
+    transform: translateY(-1px);
+    box-shadow: 0 3px 10px rgba(40, 167, 69, 0.2);
+}
+
+.file-item.selected::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background: linear-gradient(to bottom, var(--success-color), #20c997);
+    border-radius: 0 var(--border-radius) var(--border-radius) 0;
+}
+
+/* 批量操作模式下的文件项调整 */
+.file-item {
+    position: relative;
+    display: flex;
+    align-items: center;
+    transition: all 0.2s ease;
+}
+
+.file-item .file-checkbox {
+    flex-shrink: 0;
+}
+
+/* 禁用状态的批量操作按钮 */
+.batch-actions .btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.batch-actions .btn:disabled:hover {
+    transform: none;
+    box-shadow: none;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+    .batch-controls {
+        flex-direction: column;
+        gap: 12px;
+        align-items: stretch;
+    }
+    
+    .batch-actions {
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+    
+    .batch-actions .btn {
+        flex: 1;
+        min-width: 80px;
+    }
+}

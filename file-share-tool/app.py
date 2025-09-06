@@ -8,6 +8,10 @@ import base64
 from config import Config
 from utils.file_manager import FileManager
 from utils.cleanup import start_cleanup_scheduler
+from utils.logging_config import setup_logging
+from utils.middleware import setup_error_handlers, require_operation_log
+from utils.health_check import create_health_routes
+from utils.logging_config import Operations
 
 # 创建Flask应用
 app = Flask(__name__)
@@ -16,6 +20,10 @@ app.config.from_object(Config)
 # 初始化配置
 Config.init_app(app)
 
+# 设置日志系统
+logger = setup_logging(app)
+logger.info("文件分享服务启动中...")
+
 # 创建文件管理器
 file_manager = FileManager(
     upload_folder=app.config['UPLOAD_FOLDER'],
@@ -23,11 +31,19 @@ file_manager = FileManager(
     expire_hours=app.config['FILE_EXPIRE_HOURS']
 )
 
+# 设置错误处理
+setup_error_handlers(app)
+
+# 创建健康检查路由
+create_health_routes(app, file_manager)
+
 # 启动文件清理调度器
 cleanup_scheduler = start_cleanup_scheduler(
     file_manager, 
     app.config['CLEANUP_INTERVAL_MINUTES']
 )
+
+logger.info("文件分享服务初始化完成")
 
 def get_local_ip():
     """获取本机IP地址"""
@@ -77,6 +93,7 @@ def index():
                          local_ip=local_ip)
 
 @app.route('/api/upload', methods=['POST'])
+@require_operation_log(Operations.FILE_UPLOAD)
 def upload_file():
     """文件上传API"""
     try:
@@ -470,6 +487,124 @@ def manual_cleanup():
         })
     except Exception as e:
         return jsonify({'success': False, 'message': f'清理失败: {str(e)}'}), 500
+
+@app.route('/api/batch/delete', methods=['POST'])
+@require_operation_log(Operations.FILE_DELETE)
+def batch_delete_files():
+    """批量删除文件API"""
+    try:
+        data = request.get_json()
+        if not data or 'file_ids' not in data:
+            return jsonify({'success': False, 'message': '缺少文件ID列表'}), 400
+        
+        file_ids = data['file_ids']
+        if not isinstance(file_ids, list) or len(file_ids) == 0:
+            return jsonify({'success': False, 'message': '文件ID列表格式错误或为空'}), 400
+        
+        if len(file_ids) > 100:  # 限制批量操作数量
+            return jsonify({'success': False, 'message': '批量删除数量不能超过100个'}), 400
+        
+        success_count = 0
+        failed_count = 0
+        failed_files = []
+        
+        for file_id in file_ids:
+            try:
+                if file_manager.delete_file(file_id):
+                    success_count += 1
+                else:
+                    failed_count += 1
+                    failed_files.append(file_id)
+            except Exception as e:
+                failed_count += 1
+                failed_files.append(file_id)
+                logger.error(f"删除文件失败 {file_id}: {str(e)}")
+        
+        return jsonify({
+            'success': True,
+            'message': f'批量删除完成：成功 {success_count} 个，失败 {failed_count} 个',
+            'success_count': success_count,
+            'failed_count': failed_count,
+            'failed_files': failed_files
+        })
+        
+    except Exception as e:
+        logger.error(f"批量删除失败: {str(e)}", exc_info=True)
+        return jsonify({'success': False, 'message': f'批量删除失败: {str(e)}'}), 500
+
+@app.route('/api/batch/download', methods=['POST'])
+@require_operation_log(Operations.FILE_DOWNLOAD)
+def batch_download_files():
+    """批量下载文件API（创建ZIP包）"""
+    try:
+        data = request.get_json()
+        if not data or 'file_ids' not in data:
+            return jsonify({'success': False, 'message': '缺少文件ID列表'}), 400
+        
+        file_ids = data['file_ids']
+        if not isinstance(file_ids, list) or len(file_ids) == 0:
+            return jsonify({'success': False, 'message': '文件ID列表格式错误或为空'}), 400
+        
+        if len(file_ids) > 50:  # 限制批量下载数量
+            return jsonify({'success': False, 'message': '批量下载数量不能超过50个'}), 400
+        
+        # 创建临时ZIP文件
+        temp_zip = tempfile.NamedTemporaryFile(suffix='.zip', delete=False)
+        temp_zip.close()
+        
+        added_files = 0
+        with zipfile.ZipFile(temp_zip.name, 'w', zipfile.ZIP_DEFLATED) as zipf:
+            for file_id in file_ids:
+                try:
+                    metadata = file_manager.get_file_metadata(file_id)
+                    if metadata and os.path.exists(metadata['file_path']):
+                        # 使用原始文件名，如果重名则添加数字后缀
+                        zip_name = metadata['original_name']
+                        counter = 1
+                        original_zip_name = zip_name
+                        
+                        # 检查ZIP中是否已存在同名文件
+                        while zip_name in zipf.namelist():
+                            name, ext = os.path.splitext(original_zip_name)
+                            zip_name = f"{name}_{counter}{ext}"
+                            counter += 1
+                        
+                        zipf.write(metadata['file_path'], zip_name)
+                        added_files += 1
+                except Exception as e:
+                    logger.error(f"添加文件到ZIP失败 {file_id}: {str(e)}")
+                    continue
+        
+        if added_files == 0:
+            os.remove(temp_zip.name)
+            return jsonify({'success': False, 'message': '没有可下载的文件'}), 404
+        
+        # 生成下载文件名
+        download_name = f"batch_download_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip"
+        
+        def remove_file():
+            """下载完成后删除临时文件"""
+            try:
+                if os.path.exists(temp_zip.name):
+                    os.remove(temp_zip.name)
+            except:
+                pass
+        
+        # 发送文件并在完成后删除
+        response = send_file(
+            temp_zip.name,
+            as_attachment=True,
+            download_name=download_name,
+            mimetype='application/zip'
+        )
+        
+        # 注册清理函数
+        response.call_on_close(remove_file)
+        return response
+        
+    except Exception as e:
+        logger.error(f"批量下载失败: {str(e)}", exc_info=True)
+        return jsonify({'success': False, 'message': f'批量下载失败: {str(e)}'}), 500
 
 @app.errorhandler(413)
 def too_large(e):

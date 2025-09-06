@@ -6,25 +6,47 @@ import zipfile
 import tempfile
 from datetime import datetime, timedelta
 from werkzeug.utils import secure_filename
+from .database import DatabaseManager
+from .logging_config import get_logger
 
 class FileManager:
-    """文件管理器类"""
+    """文件管理器类（SQLite版本）"""
     
     def __init__(self, upload_folder, allowed_extensions, expire_hours=24):
         self.upload_folder = upload_folder
         self.allowed_extensions = allowed_extensions
         self.expire_hours = expire_hours
-        self.metadata_file = os.path.join(upload_folder, 'metadata.json')
+        self.logger = get_logger()
+        
+        # SQLite数据库路径
+        self.db_path = os.path.join(upload_folder, 'metadata.db')
+        self.database = DatabaseManager(self.db_path)
+        
+        # 确保上传目录存在
         self.ensure_upload_folder()
+        
+        # 从旧的JSON文件迁移数据（如果存在）
+        self.migrate_from_json()
     
     def ensure_upload_folder(self):
         """确保上传目录存在"""
         if not os.path.exists(self.upload_folder):
             os.makedirs(self.upload_folder)
+            self.logger.info(f"创建上传目录: {self.upload_folder}")
+    
+    def migrate_from_json(self):
+        """从JSON文件迁移数据到SQLite"""
+        json_file = os.path.join(self.upload_folder, 'metadata.json')
+        if os.path.exists(json_file):
+            self.logger.info("检测到旧的JSON元数据文件，开始迁移...")
+            if self.database.migrate_from_json(json_file):
+                # 迁移成功后备份JSON文件
+                backup_file = f"{json_file}.backup.{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+                os.rename(json_file, backup_file)
+                self.logger.info(f"JSON数据迁移完成，原文件已备份为: {backup_file}")
     
     def allowed_file(self, filename):
         """检查文件是否允许上传"""
-        # 允许所有文件类型，包括没有扩展名的文件
         if not filename or filename.startswith('.'):
             return False
         return True
@@ -40,9 +62,12 @@ class FileManager:
     
     def save_file(self, file, relative_path=None):
         """保存上传的文件"""
-        if file and self.allowed_file(file.filename):
+        try:
+            if not file or not self.allowed_file(file.filename):
+                return None, None
+            
             file_id = str(uuid.uuid4())
-
+            
             # 使用相对路径或原始文件名
             if relative_path:
                 original_filename = relative_path
@@ -50,19 +75,20 @@ class FileManager:
             else:
                 original_filename = secure_filename(file.filename)
                 display_name = original_filename
-
+            
             file_extension = self.get_file_extension(os.path.basename(original_filename))
             stored_filename = f"{file_id}.{file_extension}"
             file_path = os.path.join(self.upload_folder, stored_filename)
-
+            
             # 保存文件
             file.save(file_path)
-
+            self.logger.info(f"文件保存成功: {stored_filename}")
+            
             # 获取文件信息
             file_size = os.path.getsize(file_path)
             upload_time = datetime.now()
             expire_time = upload_time + timedelta(hours=self.expire_hours)
-
+            
             # 创建元数据
             metadata = {
                 'id': file_id,
@@ -76,196 +102,193 @@ class FileManager:
                 'expire_time': expire_time.isoformat(),
                 'relative_path': relative_path or original_filename
             }
-
-            # 保存元数据
-            self.save_metadata(metadata)
-            return file_id, metadata
-        return None, None
+            
+            # 保存元数据到数据库
+            if self.database.save_file_metadata(metadata):
+                self.logger.info(f"文件元数据保存成功: {file_id}")
+                return file_id, metadata
+            else:
+                # 如果数据库保存失败，删除已保存的文件
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+                self.logger.error(f"文件元数据保存失败，已删除文件: {stored_filename}")
+                return None, None
+                
+        except Exception as e:
+            self.logger.error(f"保存文件失败: {str(e)}", exc_info=True)
+            return None, None
     
     def save_text_file(self, filename, content):
         """保存文本文件"""
-        if not filename.endswith('.txt'):
-            filename += '.txt'
-        
-        file_id = str(uuid.uuid4())
-        original_filename = secure_filename(filename)
-        stored_filename = f"{file_id}.txt"
-        file_path = os.path.join(self.upload_folder, stored_filename)
-        
-        # 保存文本内容
-        with open(file_path, 'w', encoding='utf-8') as f:
-            f.write(content)
-        
-        # 获取文件信息
-        file_size = os.path.getsize(file_path)
-        upload_time = datetime.now()
-        expire_time = upload_time + timedelta(hours=self.expire_hours)
-        
-        # 创建元数据
-        metadata = {
-            'id': file_id,
-            'original_name': original_filename,
-            'stored_name': stored_filename,
-            'file_path': os.path.normpath(file_path),
-            'file_size': file_size,
-            'file_type': 'text/plain',
-            'file_extension': 'txt',
-            'upload_time': upload_time.isoformat(),
-            'expire_time': expire_time.isoformat(),
-            'is_text_file': True
-        }
-        
-        # 保存元数据
-        self.save_metadata(metadata)
-        return file_id, metadata
-    
-    def load_metadata(self):
-        """加载元数据"""
-        if os.path.exists(self.metadata_file):
-            try:
-                with open(self.metadata_file, 'r', encoding='utf-8') as f:
-                    return json.load(f)
-            except (json.JSONDecodeError, IOError):
-                return {}
-        return {}
-    
-    def save_all_metadata(self, metadata_dict):
-        """保存所有元数据"""
         try:
-            with open(self.metadata_file, 'w', encoding='utf-8') as f:
-                json.dump(metadata_dict, f, ensure_ascii=False, indent=2)
-        except IOError:
-            pass
+            if not filename.endswith('.txt'):
+                filename += '.txt'
+            
+            file_id = str(uuid.uuid4())
+            original_filename = secure_filename(filename)
+            stored_filename = f"{file_id}.txt"
+            file_path = os.path.join(self.upload_folder, stored_filename)
+            
+            # 保存文本内容
+            with open(file_path, 'w', encoding='utf-8') as f:
+                f.write(content)
+            
+            # 获取文件信息
+            file_size = os.path.getsize(file_path)
+            upload_time = datetime.now()
+            expire_time = upload_time + timedelta(hours=self.expire_hours)
+            
+            # 创建元数据
+            metadata = {
+                'id': file_id,
+                'original_name': original_filename,
+                'stored_name': stored_filename,
+                'file_path': os.path.normpath(file_path),
+                'file_size': file_size,
+                'file_type': 'text/plain',
+                'file_extension': 'txt',
+                'upload_time': upload_time.isoformat(),
+                'expire_time': expire_time.isoformat(),
+                'is_text_file': True
+            }
+            
+            # 保存元数据到数据库
+            if self.database.save_file_metadata(metadata):
+                self.logger.info(f"文本文件保存成功: {file_id}")
+                return file_id, metadata
+            else:
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+                return None, None
+                
+        except Exception as e:
+            self.logger.error(f"保存文本文件失败: {str(e)}", exc_info=True)
+            return None, None
     
-    def save_metadata(self, metadata):
-        """保存单个文件的元数据"""
-        all_metadata = self.load_metadata()
-        all_metadata[metadata['id']] = metadata
-        self.save_all_metadata(all_metadata)
-    
-    def get_file_list(self):
+    def get_file_list(self, limit=None, offset=0):
         """获取文件列表"""
-        metadata_dict = self.load_metadata()
-        file_list = []
-        
-        for file_id, metadata in metadata_dict.items():
-            # 检查文件是否仍然存在
-            if os.path.exists(metadata['file_path']):
-                # 检查是否过期
-                expire_time = datetime.fromisoformat(metadata['expire_time'])
-                if datetime.now() < expire_time:
-                    file_list.append(metadata)
-        
-        # 按上传时间倒序排列
-        file_list.sort(key=lambda x: x['upload_time'], reverse=True)
-        return file_list
+        try:
+            return self.database.get_all_files(limit, offset)
+        except Exception as e:
+            self.logger.error(f"获取文件列表失败: {str(e)}", exc_info=True)
+            return []
+    
+    def get_folder_structure(self):
+        """获取文件夹结构"""
+        try:
+            return self.database.get_folder_structure()
+        except Exception as e:
+            self.logger.error(f"获取文件夹结构失败: {str(e)}", exc_info=True)
+            return {}
     
     def get_file_metadata(self, file_id):
-        """获取单个文件的元数据"""
-        metadata_dict = self.load_metadata()
-        return metadata_dict.get(file_id)
+        """获取文件元数据"""
+        return self.database.get_file_metadata(file_id)
     
     def delete_file(self, file_id):
         """删除文件"""
-        metadata_dict = self.load_metadata()
-        if file_id in metadata_dict:
-            metadata = metadata_dict[file_id]
-            file_path = metadata['file_path']
+        try:
+            # 获取文件元数据
+            metadata = self.database.get_file_metadata(file_id)
+            if not metadata:
+                self.logger.warning(f"要删除的文件不存在: {file_id}")
+                return False
             
             # 删除物理文件
+            file_path = metadata['file_path']
             if os.path.exists(file_path):
                 os.remove(file_path)
+                self.logger.info(f"删除物理文件: {file_path}")
             
-            # 删除元数据
-            del metadata_dict[file_id]
-            self.save_all_metadata(metadata_dict)
-            return True
-        return False
+            # 删除数据库记录
+            success = self.database.delete_file_metadata(file_id)
+            if success:
+                self.logger.info(f"文件删除成功: {file_id}")
+            return success
+            
+        except Exception as e:
+            self.logger.error(f"删除文件失败: {str(e)}", exc_info=True)
+            return False
     
     def cleanup_expired_files(self):
         """清理过期文件"""
-        metadata_dict = self.load_metadata()
-        current_time = datetime.now()
-        expired_files = []
-        
-        for file_id, metadata in list(metadata_dict.items()):
-            expire_time = datetime.fromisoformat(metadata['expire_time'])
-            if current_time >= expire_time:
-                # 删除过期文件
-                file_path = metadata['file_path']
-                if os.path.exists(file_path):
-                    os.remove(file_path)
-                expired_files.append(file_id)
-                del metadata_dict[file_id]
-        
-        if expired_files:
-            self.save_all_metadata(metadata_dict)
-        
-        return len(expired_files)
+        try:
+            expired_files = self.database.get_expired_files()
+            cleanup_count = 0
+            
+            for file_metadata in expired_files:
+                try:
+                    file_id = file_metadata['id']
+                    file_path = file_metadata['file_path']
+                    
+                    # 删除物理文件
+                    if os.path.exists(file_path):
+                        os.remove(file_path)
+                    
+                    # 删除数据库记录
+                    if self.database.delete_file_metadata(file_id):
+                        cleanup_count += 1
+                        self.logger.info(f"清理过期文件: {file_id}")
+                    
+                except Exception as e:
+                    self.logger.error(f"清理单个文件失败: {str(e)}")
+                    continue
+            
+            if cleanup_count > 0:
+                self.logger.info(f"文件清理完成，共清理 {cleanup_count} 个过期文件")
+                # 优化数据库
+                self.database.vacuum_database()
+            
+            return cleanup_count
+            
+        except Exception as e:
+            self.logger.error(f"清理过期文件失败: {str(e)}", exc_info=True)
+            return 0
     
     def get_storage_info(self):
         """获取存储信息"""
-        metadata_dict = self.load_metadata()
-        total_files = len(metadata_dict)
-        total_size = sum(metadata.get('file_size', 0) for metadata in metadata_dict.values())
-
-        return {
-            'total_files': total_files,
-            'total_size': total_size,
-            'total_size_mb': round(total_size / (1024 * 1024), 2)
-        }
-
-    def get_folder_structure(self):
-        """获取文件夹结构"""
-        metadata_dict = self.load_metadata()
-        folders = {}
-
-        for file_id, metadata in metadata_dict.items():
-            # 检查文件是否仍然存在且未过期
-            if os.path.exists(metadata['file_path']):
-                expire_time = datetime.fromisoformat(metadata['expire_time'])
-                if datetime.now() < expire_time:
-                    relative_path = metadata.get('relative_path', metadata['original_name'])
-
-                    # 提取文件夹路径
-                    if '/' in relative_path or '\\' in relative_path:
-                        # 标准化路径分隔符
-                        normalized_path = relative_path.replace('\\', '/')
-                        # 使用顶级文件夹名称作为键
-                        folder_name = normalized_path.split('/')[0]
-
-                        if folder_name not in folders:
-                            folders[folder_name] = []
-                        folders[folder_name].append(metadata)
-
-        return folders
-
-    def create_folder_zip(self, folder_path):
-        """为指定文件夹创建ZIP文件"""
-        folders = self.get_folder_structure()
-
-        if folder_path not in folders:
-            return None
-
-        # 创建临时ZIP文件
-        temp_dir = tempfile.gettempdir()
-        zip_filename = f"folder_{uuid.uuid4().hex[:8]}.zip"
-        zip_path = os.path.join(temp_dir, zip_filename)
-
         try:
-            with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
-                for file_metadata in folders[folder_path]:
-                    file_path = file_metadata['file_path']
-                    if os.path.exists(file_path):
-                        # 在ZIP中保持相对路径结构
-                        relative_path = file_metadata.get('relative_path', file_metadata['original_name'])
-                        # 标准化路径分隔符
-                        archive_name = relative_path.replace('\\', '/')
-                        zipf.write(file_path, archive_name)
-
-            return zip_path
+            return self.database.get_storage_stats()
         except Exception as e:
-            # 如果创建失败，删除临时文件
-            if os.path.exists(zip_path):
-                os.remove(zip_path)
-            raise e
+            self.logger.error(f"获取存储信息失败: {str(e)}", exc_info=True)
+            return {
+                'total_files': 0,
+                'total_size': 0,
+                'expired_files': 0,
+                'type_statistics': []
+            }
+    
+    def create_folder_zip(self, folder_path):
+        """创建文件夹的ZIP压缩包"""
+        try:
+            folder_structure = self.database.get_folder_structure()
+            
+            if folder_path not in folder_structure:
+                self.logger.warning(f"文件夹不存在: {folder_path}")
+                return None
+            
+            files_in_folder = folder_structure[folder_path]
+            if not files_in_folder:
+                self.logger.warning(f"文件夹为空: {folder_path}")
+                return None
+            
+            # 创建临时ZIP文件
+            temp_zip = tempfile.NamedTemporaryFile(suffix='.zip', delete=False)
+            temp_zip.close()
+            
+            with zipfile.ZipFile(temp_zip.name, 'w', zipfile.ZIP_DEFLATED) as zipf:
+                for file_info in files_in_folder:
+                    file_path = file_info['file_path']
+                    if os.path.exists(file_path):
+                        # 在ZIP中使用相对路径
+                        relative_path = file_info.get('relative_path', file_info['original_name'])
+                        # 移除文件夹前缀，只保留文件名
+                        zip_path = os.path.basename(relative_path)
+                        zipf.write(file_path, zip_path)
+            
+            self.logger.info(f"创建文件夹ZIP: {folder_path} -> {temp_zip.name}")
+            return temp_zip.name
+            
+        except Exception as e:
+            self.logger.error(f"创建文件夹ZIP失败: {str(e)}", exc_info=True)
+            return None

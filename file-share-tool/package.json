@@ -1,0 +1,53 @@
+{
+  "name": "file-share-tool",
+  "version": "2.0.0",
+  "description": "局域网文件分享工具前端构建配置",
+  "main": "static/js/main.js",
+  "scripts": {
+    "build": "webpack --mode=production",
+    "dev": "webpack --mode=development --watch",
+    "lint": "eslint static/js/**/*.js",
+    "format": "prettier --write static/**/*.{js,css,html}"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.22.0",
+    "@babel/preset-env": "^7.22.0",
+    "babel-loader": "^9.1.0",
+    "css-loader": "^6.8.0",
+    "eslint": "^8.42.0",
+    "html-webpack-plugin": "^5.5.0",
+    "mini-css-extract-plugin": "^2.7.0",
+    "prettier": "^2.8.0",
+    "webpack": "^5.85.0",
+    "webpack-cli": "^5.1.0"
+  },
+  "babel": {
+    "presets": [
+      [
+        "@babel/preset-env",
+        {
+          "targets": {
+            "browsers": ["> 1%", "last 2 versions"]
+          }
+        }
+      ]
+    ]
+  },
+  "eslintConfig": {
+    "env": {
+      "browser": true,
+      "es2021": true
+    },
+    "extends": "eslint:recommended",
+    "rules": {
+      "no-unused-vars": "warn",
+      "no-console": "off"
+    }
+  },
+  "prettier": {
+    "semi": true,
+    "singleQuote": true,
+    "tabWidth": 4,
+    "trailingComma": "es5"
+  }
+}

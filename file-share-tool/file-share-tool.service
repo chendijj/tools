@@ -1,0 +1,29 @@
+[Unit]
+Description=文件分享工具 - File Share Tool
+After=network.target
+
+[Service]
+Type=notify
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/file-share-tool
+Environment=PATH=/opt/file-share-tool/venv/bin
+ExecStart=/opt/file-share-tool/venv/bin/gunicorn --bind 0.0.0.0:5000 --workers 4 --timeout 300 --keep-alive 2 --max-requests 1000 --preload app:app
+ExecReload=/bin/kill -s HUP $MAINPID
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+# 资源限制
+LimitNOFILE=65536
+MemoryMax=512M
+
+# 安全设置
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/file-share-tool/static/uploads /opt/file-share-tool/logs
+
+[Install]
+WantedBy=multi-user.target

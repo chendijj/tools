@@ -112,11 +112,32 @@
       <h2>📁 文件列表</h2>
       <div class="list-controls">
         <span id="storage-info" class="storage-info">加载中...</span>
+        <button id="batch-mode-toggle" class="btn btn-secondary" onclick="toggleBatchMode()">
+          ☑️ 批量操作
+        </button>
         <button class="btn btn-secondary" onclick="refreshFileList()">
           🔄 刷新
         </button>
         <button class="btn btn-danger" onclick="clearAllFiles()">
           🗑️ 清空所有
+        </button>
+      </div>
+    </div>
+
+    <!-- 批量操作控件 -->
+    <div id="batch-controls" class="batch-controls" style="display: none;">
+      <div class="batch-info">
+        <span id="selection-count">已选择 0 个文件</span>
+      </div>
+      <div class="batch-actions">
+        <button class="btn btn-secondary" onclick="toggleSelectAll()">
+          🔄 全选/取消
+        </button>
+        <button id="batch-download" class="btn btn-success" onclick="batchDownloadFiles()" disabled>
+          📦 批量下载
+        </button>
+        <button id="batch-delete" class="btn btn-danger" onclick="batchDeleteFiles()" disabled>
+          🗑️ 批量删除
         </button>
       </div>
     </div>
