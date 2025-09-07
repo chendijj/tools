@@ -769,19 +769,33 @@ async function clearAllFiles() {
             
             for (const file of result.files) {
                 try {
-                    const deleteResponse = await fetch(`/api/delete/${file.id}`, {
-                        method: 'DELETE'
-                    });
+                    let deleteResponse;
+                    
+                    if (file.is_folder) {
+                        // 删除文件夹
+                        const encodedPath = encodeURIComponent(file.folder_path);
+                        deleteResponse = await fetch(`/api/delete-folder/${encodedPath}`, {
+                            method: 'DELETE'
+                        });
+                    } else {
+                        // 删除文件
+                        deleteResponse = await fetch(`/api/delete/${file.id}`, {
+                            method: 'DELETE'
+                        });
+                    }
                     
                     if (deleteResponse.ok) {
-                        deletedCount++;
+                        const deleteResult = await deleteResponse.json();
+                        if (deleteResult.success) {
+                            deletedCount++;
+                        }
                     }
                 } catch (error) {
-                    console.error('删除文件失败:', error);
+                    console.error('删除项目失败:', error);
                 }
             }
             
-            showToast(`成功删除 ${deletedCount} 个文件`, 'success');
+            showToast(`成功删除 ${deletedCount} 个项目`, 'success');
             refreshFileList();
         } else {
             showToast('没有文件需要删除', 'warning');
@@ -853,12 +867,6 @@ function fallbackCopyText(text) {
     document.body.removeChild(textArea);
 }
 
-// 切换二维码显示
-function toggleQRCode() {
-    const qrContainer = document.getElementById('qr-code-container');
-    const isVisible = qrContainer.style.display !== 'none';
-    qrContainer.style.display = isVisible ? 'none' : 'block';
-}
 
 // 显示Toast通知
 function showToast(message, type = 'info') {
@@ -889,11 +897,6 @@ document.addEventListener('click', function(e) {
     const modal = document.getElementById('preview-modal');
     if (e.target === modal) {
         closePreviewModal();
-    }
-    
-    const qrContainer = document.getElementById('qr-code-container');
-    if (!e.target.closest('.qr-section') && qrContainer.style.display === 'block') {
-        qrContainer.style.display = 'none';
     }
 });
 
@@ -1083,7 +1086,6 @@ async function batchDeleteFiles() {
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
         closePreviewModal();
-        document.getElementById('qr-code-container').style.display = 'none';
         closeFolderModal();
         
         // ESC键退出批量模式

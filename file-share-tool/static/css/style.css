@@ -55,6 +55,15 @@ body {
     padding: 12px 20px;
 }
 
+.header-secondary {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 20px 12px 20px;
+    border-top: 1px solid var(--border-color);
+    background: rgba(0, 0, 0, 0.02);
+}
+
 .title-left {
     display: flex;
     align-items: center;
@@ -74,7 +83,7 @@ body {
 .subtitle {
     color: var(--text-secondary);
     font-size: 14px;
-    margin-left: 34px;
+    margin: 0;
 }
 
 .server-info {
@@ -122,16 +131,13 @@ body {
 }
 
 .qr-code-container {
-    position: absolute;
-    top: 100%;
-    right: 0;
     background: var(--bg-secondary);
     border: 1px solid var(--border-color);
     border-radius: var(--border-radius);
-    padding: 15px;
+    padding: 10px;
     box-shadow: var(--shadow);
-    z-index: 1000;
     text-align: center;
+    margin: 0;
 }
 
 .qr-section {
@@ -139,9 +145,15 @@ body {
 }
 
 #qr-code {
-    width: 120px;
-    height: 120px;
-    margin-bottom: 8px;
+    width: 80px;
+    height: 80px;
+    margin-bottom: 4px;
+}
+
+.qr-code-container p {
+    margin: 0;
+    font-size: 12px;
+    color: var(--text-secondary);
 }
 
 /* 主要内容区域 */
@@ -752,6 +764,22 @@ section {
     .server-info {
         flex-direction: column;
         gap: 15px;
+    }
+    
+    .header-secondary {
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+        text-align: center;
+    }
+    
+    .qr-code-container {
+        margin: 0;
+    }
+    
+    #qr-code {
+        width: 70px;
+        height: 70px;
     }
     
     .section-header {

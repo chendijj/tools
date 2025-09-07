@@ -172,7 +172,7 @@ class DatabaseManager:
             return []
     
     def get_folder_structure(self) -> Dict[str, List[Dict[str, Any]]]:
-        """获取文件夹结构"""
+        """获取文件夹结构 - 只返回根文件夹"""
         try:
             files = self.get_all_files()
             folder_structure = {}
@@ -185,11 +185,12 @@ class DatabaseManager:
                     # 统一使用正斜杠
                     path_parts = relative_path.replace('\\', '/').split('/')
                     if len(path_parts) > 1:
-                        folder_path = '/'.join(path_parts[:-1])
+                        # 只取第一级文件夹作为根文件夹
+                        root_folder = path_parts[0]
                         
-                        if folder_path not in folder_structure:
-                            folder_structure[folder_path] = []
-                        folder_structure[folder_path].append(file_info)
+                        if root_folder not in folder_structure:
+                            folder_structure[root_folder] = []
+                        folder_structure[root_folder].append(file_info)
             
             return folder_structure
             
