@@ -251,7 +251,16 @@
 示例输入：
 【GM】PVETest关卡选择，需要支持读取pve_section_config
 【英雄装备】替换装备的时候需要支持脱下后穿戴
-pveboss关战力推荐挑战，pve关卡卡点具体到每个boss</div>
+【英雄部队】英雄队伍管理功能（会合并到【英雄】类别）
+pveboss关战力推荐挑战，pve关卡卡点具体到每个boss
+打野怪重伤率提升到千分之1（会自动识别为【怪物】类别）
+装备强化系统优化（会自动识别为【装备】类别）</div>
+        </div>
+
+        <div class="button-group">
+            <button class="btn btn-primary" onclick="loadExample(); processDocument();">
+                🔄 加载示例并处理
+            </button>
         </div>
 
         <div class="main-content">
@@ -334,6 +343,65 @@ pveboss关战力推荐挑战，pve关卡卡点具体到每个boss</div>
             }
         }
 
+        // 关键词映射表，用于合并相似类别
+        function createKeywordMap(categories) {
+            const keywordMap = {};
+            const categoryKeys = Object.keys(categories);
+            
+            for (let i = 0; i < categoryKeys.length; i++) {
+                const category1 = categoryKeys[i];
+                let mergeTarget = category1;
+                
+                // 查找是否有其他类别是当前类别的子集
+                for (let j = 0; j < categoryKeys.length; j++) {
+                    if (i !== j) {
+                        const category2 = categoryKeys[j];
+                        // 如果category1包含category2，则将category2合并到category1
+                        if (category1.includes(category2) && category2.length < category1.length) {
+                            mergeTarget = category2;
+                            break;
+                        }
+                        // 如果category2包含category1，则将category1合并到category2
+                        else if (category2.includes(category1) && category1.length < category2.length) {
+                            mergeTarget = category2;
+                            break;
+                        }
+                    }
+                }
+                keywordMap[category1] = mergeTarget;
+            }
+            
+            return keywordMap;
+        }
+
+        // 从文本中提取关键词进行分类
+        function extractKeywordsFromText(text) {
+            // 常见关键词模式
+            const keywordPatterns = {
+                '英雄': ['英雄', '角色', '人物'],
+                '装备': ['装备', '武器', '道具', '物品'],
+                '关卡': ['关卡', '副本', '战斗', 'boss', 'pve', '挑战'],
+                '系统': ['系统', '功能', '设置', '配置'],
+                'GM': ['gm', '管理', '后台', '工具'],
+                '演习': ['演习', '竞技', 'pvp', '对战'],
+                '建筑': ['建筑', '升级', '建造'],
+                '怪物': ['怪物', '野怪', '敌人']
+            };
+            
+            const textLower = text.toLowerCase();
+            
+            // 查找匹配的关键词
+            for (const [category, patterns] of Object.entries(keywordPatterns)) {
+                for (const pattern of patterns) {
+                    if (textLower.includes(pattern)) {
+                        return category;
+                    }
+                }
+            }
+            
+            return null;
+        }
+
         function processFunctionDocuments(content) {
             // 使用正则表达式匹配功能单据
             const pattern = /【(.*?)】([^\n]+)/g;
@@ -358,9 +426,22 @@ pveboss关战力推荐挑战，pve关卡卡点具体到每个boss</div>
                 categories[category].push(functionName);
             });
 
-            // 提取没有【】符号的行（其他功能单据）
+            // 创建关键词映射进行类别合并
+            const keywordMap = createKeywordMap(categories);
+            const mergedCategories = {};
+            
+            // 合并相似类别
+            Object.entries(categories).forEach(([category, functions]) => {
+                const targetCategory = keywordMap[category];
+                if (!mergedCategories[targetCategory]) {
+                    mergedCategories[targetCategory] = [];
+                }
+                mergedCategories[targetCategory] = mergedCategories[targetCategory].concat(functions);
+            });
+
+            // 提取没有【】符号的行并尝试自动分类
             const lines = content.split('\n');
-            const otherFunctions = [];
+            const unclassifiedFunctions = [];
             
             lines.forEach(line => {
                 line = line.trim();
@@ -370,14 +451,23 @@ pveboss关战力推荐挑战，pve关卡卡点具体到每个boss</div>
                         line === functionName.trim()
                     );
                     if (!isMatched) {
-                        otherFunctions.push(line);
+                        // 尝试基于关键词自动分类
+                        const detectedCategory = extractKeywordsFromText(line);
+                        if (detectedCategory) {
+                            if (!mergedCategories[detectedCategory]) {
+                                mergedCategories[detectedCategory] = [];
+                            }
+                            mergedCategories[detectedCategory].push(line);
+                        } else {
+                            unclassifiedFunctions.push(line);
+                        }
                     }
                 }
             });
 
-            // 添加其他类别
-            if (otherFunctions.length > 0) {
-                categories['其他'] = otherFunctions;
+            // 添加未能分类的功能到"其他"类别
+            if (unclassifiedFunctions.length > 0) {
+                mergedCategories['其他'] = unclassifiedFunctions;
             }
 
             // 生成格式化输出
@@ -385,7 +475,7 @@ pveboss关战力推荐挑战，pve关卡卡点具体到每个boss</div>
             let totalFunctions = 0;
             let categorizedFunctions = 0;
 
-            Object.entries(categories).forEach(([category, functions]) => {
+            Object.entries(mergedCategories).forEach(([category, functions]) => {
                 // 添加类别标题
                 outputLines.push(`${category}及其子功能单据${functions.length}个`);
                 
@@ -410,10 +500,10 @@ pveboss关战力推荐挑战，pve关卡卡点具体到每个boss</div>
             }
 
             const stats = {
-                totalCategories: Object.keys(categories).length,
+                totalCategories: Object.keys(mergedCategories).length,
                 totalFunctions: totalFunctions,
                 categorizedFunctions: categorizedFunctions,
-                otherFunctions: otherFunctions.length
+                otherFunctions: unclassifiedFunctions.length
             };
 
             return {
@@ -495,12 +585,16 @@ pveboss关战力推荐挑战，pve关卡卡点具体到每个boss</div>
             const exampleData = `【GM】PVETest关卡选择，需要支持读取pve_section_config
 【英雄装备】替换装备的时候需要支持脱下后穿戴
 【英雄装备】替换正在被其他英雄穿戴的装备时先弹出对比界面然后直接替换
+【英雄部队】英雄队伍管理功能
+【英雄】角色属性优化
 【演习室】防守阵容推荐设置优化-预制
 【演习室】防守阵容推荐设置优化-UI-推荐图标和位置
 pveboss关战力推荐挑战，pve关卡卡点具体到每个boss
 打野怪重伤率提升到千分之1
 【GM】客户端增加协议录制、回放的功能
-pve失败推荐，建筑升级前五章放到第一位`;
+pve失败推荐，建筑升级前五章放到第一位
+装备强化系统优化
+武器升级界面改进`;
             
             document.getElementById('input').value = exampleData;
         }
