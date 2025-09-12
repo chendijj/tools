@@ -41,6 +41,10 @@
                                     <span>📊</span>
                                     加载示例
                                 </button>
+                                <button onclick="toggleRulesPanel()" class="tool-button">
+                                    <span>⚙️</span>
+                                    分类规则
+                                </button>
                             </div>
                             <div class="toolbar-group">
                                 <button onclick="copyResult()" class="tool-button success">
@@ -51,6 +55,62 @@
                                     <span>🗑️</span>
                                     清空
                                 </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 自定义分类规则面板 -->
+                    <div class="card" id="rulesPanel" style="display: none;">
+                        <div class="card-header">
+                            <h3 class="card-title">
+                                <span>⚙️</span>
+                                自定义分类规则
+                            </h3>
+                        </div>
+                        <div class="card-body">
+                            <div style="display: flex; flex-direction: column; gap: 15px;">
+                                
+                                <!-- 添加新规则区域 -->
+                                <div style="display: flex; gap: 10px; align-items: end;">
+                                    <div style="flex: 1;">
+                                        <label style="display: block; margin-bottom: 5px; color: var(--text-secondary); font-size: 14px;">类别名称</label>
+                                        <input type="text" id="newCategory" class="form-control" placeholder="例如：UI设计" style="height: 40px;">
+                                    </div>
+                                    <div style="flex: 2;">
+                                        <label style="display: block; margin-bottom: 5px; color: var(--text-secondary); font-size: 14px;">关键词（用逗号分隔）</label>
+                                        <input type="text" id="newKeywords" class="form-control" placeholder="例如：界面,UI,前端,页面" style="height: 40px;">
+                                    </div>
+                                    <button onclick="addCustomRule()" class="tool-button primary" style="height: 40px;">
+                                        <span>➕</span>
+                                        添加规则
+                                    </button>
+                                </div>
+
+                                <!-- 现有规则列表 -->
+                                <div>
+                                    <h4 style="margin: 0 0 10px 0; color: var(--text-primary); font-size: 16px;">当前分类规则</h4>
+                                    <div id="rulesList" style="display: flex; flex-direction: column; gap: 8px; max-height: 300px; overflow-y: auto;">
+                                        <!-- 规则列表将在这里动态生成 -->
+                                    </div>
+                                </div>
+
+                                <!-- 操作按钮区域 -->
+                                <div style="display: flex; gap: 10px; justify-content: flex-end; border-top: 1px solid var(--border-color); padding-top: 15px;">
+                                    <button onclick="resetToDefault()" class="tool-button" style="background-color: var(--warning-color); color: white; border-color: var(--warning-color);">
+                                        <span>🔄</span>
+                                        恢复默认
+                                    </button>
+                                    <button onclick="exportRules()" class="tool-button success">
+                                        <span>📤</span>
+                                        导出规则
+                                    </button>
+                                    <button onclick="document.getElementById('importFile').click()" class="tool-button success">
+                                        <span>📥</span>
+                                        导入规则
+                                    </button>
+                                    <input type="file" id="importFile" accept=".json" style="display: none;" onchange="importRules(this)">
+                                </div>
+
                             </div>
                         </div>
                     </div>
@@ -136,6 +196,696 @@
     
     <!-- 工具专有脚本 -->
     <script>
+        // 自定义分类规则管理
+        class CustomRulesManager {
+            constructor() {
+                this.defaultRules = {
+                    '英雄': ['英雄', '角色', '人物'],
+                    '装备': ['装备', '武器', '道具', '物品'],
+                    '关卡': ['关卡', '副本', '战斗', 'boss', 'pve', '挑战'],
+                    '系统': ['系统', '功能', '设置', '配置'],
+                    'GM': ['gm', '管理', '后台', '工具'],
+                    '演习': ['演习', '竞技', 'pvp', '对战'],
+                    '建筑': ['建筑', '升级', '建造'],
+                    '怪物': ['怪物', '野怪', '敌人']
+                };
+                this.customRules = this.loadRules();
+            }
+
+            // 加载规则（从localStorage或使用默认规则）
+            loadRules() {
+                const saved = localStorage.getItem('documentClassificationRules');
+                if (saved) {
+                    try {
+                        return JSON.parse(saved);
+                    } catch (e) {
+                        console.warn('Failed to parse saved rules, using default rules');
+                    }
+                }
+                return JSON.parse(JSON.stringify(this.defaultRules));
+            }
+
+            // 保存规则到localStorage
+            saveRules() {
+                localStorage.setItem('documentClassificationRules', JSON.stringify(this.customRules));
+            }
+
+            // 获取当前规则
+            getRules() {
+                return this.customRules;
+            }
+
+            // 检测关键词冲突
+            detectKeywordConflicts(targetCategory, keywords, excludeCategory = null) {
+                const conflicts = [];
+                const keywordSet = new Set(keywords.map(k => k.toLowerCase().trim()));
+                
+                for (const [category, categoryKeywords] of Object.entries(this.customRules)) {
+                    // 跳过排除的类别（用于编辑时排除自身）
+                    if (excludeCategory && category === excludeCategory) {
+                        continue;
+                    }
+                    
+                    // 检查每个关键词是否冲突
+                    for (const keyword of keywordSet) {
+                        for (const existingKeyword of categoryKeywords) {
+                            const existing = existingKeyword.toLowerCase().trim();
+                            
+                            // 完全重复
+                            if (keyword === existing) {
+                                conflicts.push({
+                                    type: 'duplicate',
+                                    keyword: keyword,
+                                    conflictCategory: category,
+                                    message: `关键词"${keyword}"已存在于类别"${category}"中`
+                                });
+                            }
+                            // 包含关系检测
+                            else if (keyword.includes(existing) || existing.includes(keyword)) {
+                                conflicts.push({
+                                    type: 'contains',
+                                    keyword: keyword,
+                                    conflictKeyword: existing,
+                                    conflictCategory: category,
+                                    message: `关键词"${keyword}"与类别"${category}"中的"${existing}"存在包含关系`
+                                });
+                            }
+                        }
+                    }
+                }
+                
+                return conflicts;
+            }
+
+            // 获取冲突解决建议
+            getConflictResolutions(conflicts) {
+                const resolutions = [];
+                
+                for (const conflict of conflicts) {
+                    switch (conflict.type) {
+                        case 'duplicate':
+                            resolutions.push({
+                                conflict: conflict,
+                                options: [
+                                    { 
+                                        action: 'cancel', 
+                                        description: '取消操作，不添加重复关键词' 
+                                    },
+                                    { 
+                                        action: 'remove_from_existing', 
+                                        description: `从类别"${conflict.conflictCategory}"中移除"${conflict.keyword}"` 
+                                    }
+                                ]
+                            });
+                            break;
+                        case 'contains':
+                            resolutions.push({
+                                conflict: conflict,
+                                options: [
+                                    { 
+                                        action: 'cancel', 
+                                        description: '取消操作，避免歧义' 
+                                    },
+                                    { 
+                                        action: 'remove_from_existing', 
+                                        description: `从类别"${conflict.conflictCategory}"中移除"${conflict.conflictKeyword}"` 
+                                    }
+                                ]
+                            });
+                            break;
+                    }
+                }
+                
+                return resolutions;
+            }
+
+            // 解决冲突（根据用户选择）
+            resolveConflicts(conflicts, resolutions) {
+                for (let i = 0; i < conflicts.length; i++) {
+                    const conflict = conflicts[i];
+                    const resolution = resolutions[i];
+                    
+                    if (resolution === 'remove_from_existing') {
+                        // 从现有类别中移除冲突的关键词
+                        const categoryKeywords = this.customRules[conflict.conflictCategory];
+                        if (categoryKeywords) {
+                            const keywordToRemove = conflict.type === 'duplicate' 
+                                ? conflict.keyword 
+                                : conflict.conflictKeyword;
+                            
+                            const index = categoryKeywords.findIndex(k => 
+                                k.toLowerCase().trim() === keywordToRemove.toLowerCase()
+                            );
+                            
+                            if (index > -1) {
+                                categoryKeywords.splice(index, 1);
+                                // 如果类别没有关键词了，删除整个类别
+                                if (categoryKeywords.length === 0) {
+                                    delete this.customRules[conflict.conflictCategory];
+                                }
+                            }
+                        }
+                    } else if (resolution === 'cancel') {
+                        return false; // 取消操作
+                    }
+                    // ignore 情况下什么都不做，继续添加
+                }
+                
+                return true; // 继续操作
+            }
+
+            // 添加规则（带冲突检测）
+            addRule(category, keywords) {
+                if (!category || !keywords || keywords.length === 0) {
+                    return { success: false, message: '类别名称和关键词不能为空' };
+                }
+
+                // 检测冲突
+                const conflicts = this.detectKeywordConflicts(category, keywords);
+                
+                if (conflicts.length > 0) {
+                    return { 
+                        success: false, 
+                        conflicts: conflicts,
+                        resolutions: this.getConflictResolutions(conflicts)
+                    };
+                }
+
+                // 无冲突，直接添加
+                this.customRules[category] = keywords;
+                this.saveRules();
+                return { success: true };
+            }
+
+            // 添加规则（处理冲突后）
+            addRuleWithResolution(category, keywords, conflictResolutions) {
+                const conflicts = this.detectKeywordConflicts(category, keywords);
+                
+                if (!this.resolveConflicts(conflicts, conflictResolutions)) {
+                    return { success: false, message: '操作已取消' };
+                }
+
+                this.customRules[category] = keywords;
+                this.saveRules();
+                return { success: true };
+            }
+
+            // 更新规则（带冲突检测）
+            updateRule(oldCategory, newCategory, keywords) {
+                if (!newCategory || !keywords || keywords.length === 0) {
+                    return { success: false, message: '类别名称和关键词不能为空' };
+                }
+
+                if (oldCategory !== newCategory && this.customRules[newCategory]) {
+                    return { success: false, message: '类别名称已存在' };
+                }
+
+                // 检测冲突（排除自身）
+                const conflicts = this.detectKeywordConflicts(newCategory, keywords, oldCategory);
+                
+                if (conflicts.length > 0) {
+                    return { 
+                        success: false, 
+                        conflicts: conflicts,
+                        resolutions: this.getConflictResolutions(conflicts)
+                    };
+                }
+
+                // 无冲突，执行更新
+                if (oldCategory !== newCategory) {
+                    delete this.customRules[oldCategory];
+                }
+                this.customRules[newCategory] = keywords;
+                this.saveRules();
+                return { success: true };
+            }
+
+            // 更新规则（处理冲突后）
+            updateRuleWithResolution(oldCategory, newCategory, keywords, conflictResolutions) {
+                const conflicts = this.detectKeywordConflicts(newCategory, keywords, oldCategory);
+                
+                if (!this.resolveConflicts(conflicts, conflictResolutions)) {
+                    return { success: false, message: '操作已取消' };
+                }
+
+                if (oldCategory !== newCategory) {
+                    delete this.customRules[oldCategory];
+                }
+                this.customRules[newCategory] = keywords;
+                this.saveRules();
+                return { success: true };
+            }
+
+            // 删除规则
+            deleteRule(category) {
+                if (this.customRules[category]) {
+                    delete this.customRules[category];
+                    this.saveRules();
+                    return true;
+                }
+                return false;
+            }
+
+            // 重置为默认规则
+            resetToDefault() {
+                this.customRules = JSON.parse(JSON.stringify(this.defaultRules));
+                this.saveRules();
+            }
+
+            // 导出规则
+            exportRules() {
+                return JSON.stringify(this.customRules, null, 2);
+            }
+
+            // 导入规则
+            importRules(rulesJson) {
+                try {
+                    const rules = JSON.parse(rulesJson);
+                    if (typeof rules === 'object' && rules !== null) {
+                        this.customRules = rules;
+                        this.saveRules();
+                        return true;
+                    }
+                } catch (e) {
+                    console.error('Failed to import rules:', e);
+                }
+                return false;
+            }
+        }
+
+        // 全局规则管理器实例
+        const rulesManager = new CustomRulesManager();
+
+        // 面板显示/隐藏
+        function toggleRulesPanel() {
+            const panel = document.getElementById('rulesPanel');
+            if (panel.style.display === 'none') {
+                panel.style.display = 'block';
+                renderRulesList();
+            } else {
+                panel.style.display = 'none';
+            }
+        }
+
+        // 渲染规则列表（带冲突提示）
+        function renderRulesList() {
+            const container = document.getElementById('rulesList');
+            const rules = rulesManager.getRules();
+            
+            if (Object.keys(rules).length === 0) {
+                container.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 20px;">暂无分类规则</div>';
+                return;
+            }
+
+            // 检测所有规则的冲突
+            const allConflicts = {};
+            for (const [category, keywords] of Object.entries(rules)) {
+                const conflicts = rulesManager.detectKeywordConflicts(category, keywords, category);
+                if (conflicts.length > 0) {
+                    allConflicts[category] = conflicts;
+                }
+            }
+
+            const html = Object.entries(rules).map(([category, keywords]) => {
+                const hasConflicts = allConflicts[category] && allConflicts[category].length > 0;
+                const conflictIcon = hasConflicts ? '⚠️' : '';
+                const conflictStyle = hasConflicts ? 'border-color: var(--warning-color);' : '';
+                
+                // 标记有冲突的关键词
+                const keywordHtml = keywords.map(keyword => {
+                    const isConflicted = hasConflicts && allConflicts[category].some(c => 
+                        c.keyword === keyword.toLowerCase() || c.conflictKeyword === keyword.toLowerCase()
+                    );
+                    
+                    if (isConflicted) {
+                        return `<span style="color: var(--warning-color); font-weight: bold;" title="此关键词存在冲突">${keyword}</span>`;
+                    }
+                    return keyword;
+                }).join(', ');
+
+                return `
+                    <div style="
+                        display: flex; 
+                        align-items: center; 
+                        gap: 10px; 
+                        padding: 10px; 
+                        background-color: var(--bg-secondary); 
+                        border: 1px solid var(--border-color); 
+                        border-radius: var(--border-radius);
+                        ${conflictStyle}
+                    ">
+                        <div style="flex: 1; min-width: 100px;">
+                            <input type="text" value="${category}" 
+                                   onblur="updateRuleCategoryName(this, '${category}')"
+                                   onkeydown="if(event.key==='Enter') this.blur()"
+                                   class="form-control" 
+                                   style="height: 32px; font-weight: bold; color: var(--accent-color); background-color: var(--bg-secondary); border: 1px solid var(--border-color); padding: 4px 8px; border-radius: var(--border-radius);">
+                            ${hasConflicts ? '<div style="font-size: 12px; color: var(--warning-color); margin-top: 2px;">存在关键词冲突</div>' : ''}
+                        </div>
+                        <div style="flex: 3; font-size: 14px; color: var(--text-secondary);">
+                            <input type="text" value="${keywords.join(', ')}" 
+                                   onblur="updateRuleKeywords(this, '${category}')"
+                                   onkeydown="if(event.key==='Enter') this.blur()"
+                                   class="form-control" 
+                                   style="height: 32px; background-color: var(--bg-secondary); border: 1px solid var(--border-color); padding: 4px 8px; border-radius: var(--border-radius); color: var(--text-primary);">
+                        </div>
+                        <div style="display: flex; gap: 5px;">
+                            ${hasConflicts ? `
+                                <button onclick="showCategoryConflicts('${category}')" class="tool-button" style="padding: 6px 12px; font-size: 12px; background-color: var(--warning-color); color: white; border-color: var(--warning-color);">
+                                    <span>⚠️</span>
+                                    查看冲突
+                                </button>
+                            ` : ''}
+                            <button onclick="deleteRule('${category}')" class="tool-button danger" style="padding: 6px 12px; font-size: 12px;">
+                                <span>🗑️</span>
+                                删除
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            container.innerHTML = html;
+
+            // 如果有冲突，在列表顶部显示总体提示
+            if (Object.keys(allConflicts).length > 0) {
+                const conflictSummary = document.createElement('div');
+                conflictSummary.style.cssText = `
+                    background-color: #fff3cd;
+                    border: 1px solid var(--warning-color);
+                    border-radius: var(--border-radius);
+                    padding: 12px;
+                    margin-bottom: 10px;
+                    color: #856404;
+                    font-size: 14px;
+                `;
+                
+                const conflictCount = Object.values(allConflicts).reduce((total, conflicts) => total + conflicts.length, 0);
+                conflictSummary.innerHTML = `
+                    <strong>⚠️ 检测到 ${conflictCount} 个关键词冲突</strong><br>
+                    <small>冲突的关键词可能导致分类结果不准确，建议及时处理。</small>
+                `;
+                
+                container.insertBefore(conflictSummary, container.firstChild);
+            }
+        }
+
+        // 显示特定类别的冲突详情
+        function showCategoryConflicts(category) {
+            const rules = rulesManager.getRules();
+            const conflicts = rulesManager.detectKeywordConflicts(category, rules[category], category);
+            
+            if (conflicts.length === 0) {
+                ToastManager.success('该类别没有冲突');
+                return;
+            }
+            
+            let message = `类别"${category}"的冲突详情：\n\n`;
+            for (let i = 0; i < conflicts.length; i++) {
+                message += `${i + 1}. ${conflicts[i].message}\n`;
+            }
+            
+            message += '\n是否要自动解决这些冲突？';
+            
+            if (confirm(message)) {
+                // 自动解决冲突 - 默认选择移除现有冲突关键词
+                const resolutions = conflicts.map(() => 'remove_from_existing');
+                const result = rulesManager.updateRuleWithResolution(category, category, rules[category], resolutions);
+                
+                if (result.success) {
+                    renderRulesList();
+                    ToastManager.success('冲突已自动解决');
+                } else {
+                    ToastManager.error(result.message || '自动解决冲突失败');
+                }
+            }
+        }
+
+        // 显示冲突解决对话框
+        function showConflictResolutionDialog(conflicts, resolutions, callback) {
+            const resolutionChoices = [];
+            let dialogContent = '检测到关键词冲突：\n\n';
+            
+            for (let i = 0; i < conflicts.length; i++) {
+                const conflict = conflicts[i];
+                const options = resolutions[i].options;
+                
+                dialogContent += `冲突 ${i + 1}: ${conflict.message}\n`;
+                dialogContent += '解决方案：\n';
+                
+                for (let j = 0; j < options.length; j++) {
+                    dialogContent += `  ${j + 1}. ${options[j].description}\n`;
+                }
+                
+                const choice = prompt(dialogContent + `\n请选择解决方案 (1-${options.length}):`);
+                const choiceNum = parseInt(choice);
+                
+                if (!choice || isNaN(choiceNum) || choiceNum < 1 || choiceNum > options.length) {
+                    ToastManager.error('操作已取消');
+                    return;
+                }
+                
+                resolutionChoices.push(options[choiceNum - 1].action);
+                dialogContent = ''; // 清空，继续下一个冲突
+            }
+            
+            callback(resolutionChoices);
+        }
+
+        // 添加自定义规则（带冲突检测）
+        function addCustomRule() {
+            const categoryInput = document.getElementById('newCategory');
+            const keywordsInput = document.getElementById('newKeywords');
+            
+            const category = categoryInput.value.trim();
+            const keywordsStr = keywordsInput.value.trim();
+            
+            if (!category || !keywordsStr) {
+                ToastManager.error('请填写类别名称和关键词');
+                return;
+            }
+            
+            const keywords = keywordsStr.split(',').map(k => k.trim()).filter(k => k.length > 0);
+            
+            if (keywords.length === 0) {
+                ToastManager.error('请至少输入一个有效关键词');
+                return;
+            }
+            
+            // 尝试添加规则
+            const result = rulesManager.addRule(category, keywords);
+            
+            if (result.success) {
+                // 成功添加
+                categoryInput.value = '';
+                keywordsInput.value = '';
+                renderRulesList();
+                ToastManager.success(`已添加分类规则：${category}`);
+            } else if (result.conflicts) {
+                // 有冲突，显示解决方案
+                showConflictResolutionDialog(result.conflicts, result.resolutions, (resolutionChoices) => {
+                    const finalResult = rulesManager.addRuleWithResolution(category, keywords, resolutionChoices);
+                    
+                    if (finalResult.success) {
+                        categoryInput.value = '';
+                        keywordsInput.value = '';
+                        renderRulesList();
+                        ToastManager.success(`已添加分类规则：${category}`);
+                    } else {
+                        ToastManager.error(finalResult.message || '添加规则失败');
+                    }
+                });
+            } else {
+                ToastManager.error(result.message || '添加规则失败');
+            }
+        }
+
+        // 更新类别名称（直接编辑）
+        function updateRuleCategoryName(input, oldCategory) {
+            const newCategory = input.value.trim();
+            const rules = rulesManager.getRules();
+            
+            if (!newCategory) {
+                ToastManager.error('类别名称不能为空');
+                input.value = oldCategory; // 恢复原值
+                return;
+            }
+            
+            if (newCategory === oldCategory) {
+                return; // 没有变化
+            }
+            
+            if (rules[newCategory]) {
+                ToastManager.error('类别名称已存在');
+                input.value = oldCategory; // 恢复原值
+                return;
+            }
+            
+            const keywords = rules[oldCategory];
+            const result = rulesManager.updateRule(oldCategory, newCategory, keywords);
+            
+            if (result.success) {
+                renderRulesList();
+                ToastManager.success(`类别名称已更新为：${newCategory}`);
+            } else if (result.conflicts) {
+                showConflictResolutionDialog(result.conflicts, result.resolutions, (resolutionChoices) => {
+                    const finalResult = rulesManager.updateRuleWithResolution(oldCategory, newCategory, keywords, resolutionChoices);
+                    
+                    if (finalResult.success) {
+                        renderRulesList();
+                        ToastManager.success(`类别名称已更新为：${newCategory}`);
+                    } else {
+                        input.value = oldCategory; // 恢复原值
+                        ToastManager.error(finalResult.message || '更新失败');
+                    }
+                });
+            } else {
+                input.value = oldCategory; // 恢复原值
+                ToastManager.error(result.message || '更新失败');
+            }
+        }
+
+        // 更新关键词（直接编辑）
+        function updateRuleKeywords(input, category) {
+            const keywordsStr = input.value.trim();
+            const rules = rulesManager.getRules();
+            const originalKeywords = rules[category];
+            
+            if (!keywordsStr) {
+                ToastManager.error('关键词不能为空');
+                input.value = originalKeywords.join(', '); // 恢复原值
+                return;
+            }
+            
+            const newKeywords = keywordsStr.split(',').map(k => k.trim()).filter(k => k.length > 0);
+            
+            if (newKeywords.length === 0) {
+                ToastManager.error('请至少输入一个有效关键词');
+                input.value = originalKeywords.join(', '); // 恢复原值
+                return;
+            }
+            
+            // 检查是否有变化
+            if (JSON.stringify(newKeywords.sort()) === JSON.stringify(originalKeywords.sort())) {
+                return; // 没有变化
+            }
+            
+            const result = rulesManager.updateRule(category, category, newKeywords);
+            
+            if (result.success) {
+                renderRulesList();
+                ToastManager.success(`关键词已更新`);
+            } else if (result.conflicts) {
+                showConflictResolutionDialog(result.conflicts, result.resolutions, (resolutionChoices) => {
+                    const finalResult = rulesManager.updateRuleWithResolution(category, category, newKeywords, resolutionChoices);
+                    
+                    if (finalResult.success) {
+                        renderRulesList();
+                        ToastManager.success(`关键词已更新`);
+                    } else {
+                        input.value = originalKeywords.join(', '); // 恢复原值
+                        ToastManager.error(finalResult.message || '更新失败');
+                    }
+                });
+            } else {
+                input.value = originalKeywords.join(', '); // 恢复原值
+                ToastManager.error(result.message || '更新失败');
+            }
+        }
+
+        // 编辑规则（带冲突检测）
+        function editRule(category) {
+            const rules = rulesManager.getRules();
+            const keywords = rules[category];
+            
+            const newCategory = prompt('类别名称:', category);
+            if (newCategory === null) return; // 用户取消
+            
+            const newKeywordsStr = prompt('关键词（用逗号分隔）:', keywords.join(', '));
+            if (newKeywordsStr === null) return; // 用户取消
+            
+            const newKeywords = newKeywordsStr.split(',').map(k => k.trim()).filter(k => k.length > 0);
+            
+            if (!newCategory.trim() || newKeywords.length === 0) {
+                ToastManager.error('类别名称和关键词不能为空');
+                return;
+            }
+            
+            // 尝试更新规则
+            const result = rulesManager.updateRule(category, newCategory.trim(), newKeywords);
+            
+            if (result.success) {
+                // 成功更新
+                renderRulesList();
+                ToastManager.success(`已更新分类规则：${newCategory.trim()}`);
+            } else if (result.conflicts) {
+                // 有冲突，显示解决方案
+                showConflictResolutionDialog(result.conflicts, result.resolutions, (resolutionChoices) => {
+                    const finalResult = rulesManager.updateRuleWithResolution(category, newCategory.trim(), newKeywords, resolutionChoices);
+                    
+                    if (finalResult.success) {
+                        renderRulesList();
+                        ToastManager.success(`已更新分类规则：${newCategory.trim()}`);
+                    } else {
+                        ToastManager.error(finalResult.message || '更新规则失败');
+                    }
+                });
+            } else {
+                ToastManager.error(result.message || '更新规则失败');
+            }
+        }
+
+        // 删除规则
+        function deleteRule(category) {
+            if (confirm(`确定要删除分类规则"${category}"吗？`)) {
+                if (rulesManager.deleteRule(category)) {
+                    renderRulesList();
+                    ToastManager.success(`已删除分类规则：${category}`);
+                } else {
+                    ToastManager.error('删除规则失败');
+                }
+            }
+        }
+
+        // 重置为默认规则
+        function resetToDefault() {
+            if (confirm('确定要重置为默认分类规则吗？这将清除所有自定义规则。')) {
+                rulesManager.resetToDefault();
+                renderRulesList();
+                ToastManager.success('已重置为默认分类规则');
+            }
+        }
+
+        // 导出规则
+        function exportRules() {
+            const rulesJson = rulesManager.exportRules();
+            Utils.downloadTextFile(rulesJson, 'classification_rules.json', 'application/json');
+            ToastManager.success('分类规则已导出');
+        }
+
+        // 导入规则
+        function importRules(fileInput) {
+            const file = fileInput.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    if (rulesManager.importRules(e.target.result)) {
+                        renderRulesList();
+                        ToastManager.success('分类规则导入成功');
+                    } else {
+                        ToastManager.error('导入失败：文件格式不正确');
+                    }
+                } catch (error) {
+                    ToastManager.error('导入失败：' + error.message);
+                }
+                fileInput.value = ''; // 清空文件选择
+            };
+            reader.readAsText(file);
+        }
+
+        // 原有功能代码
         function processDocument() {
             const input = document.getElementById('input').value.trim();
             if (!input) {
@@ -184,26 +934,15 @@
             return keywordMap;
         }
 
-        // 从文本中提取关键词进行分类
+        // 从文本中提取关键词进行分类（使用自定义规则）
         function extractKeywordsFromText(text) {
-            // 常见关键词模式
-            const keywordPatterns = {
-                '英雄': ['英雄', '角色', '人物'],
-                '装备': ['装备', '武器', '道具', '物品'],
-                '关卡': ['关卡', '副本', '战斗', 'boss', 'pve', '挑战'],
-                '系统': ['系统', '功能', '设置', '配置'],
-                'GM': ['gm', '管理', '后台', '工具'],
-                '演习': ['演习', '竞技', 'pvp', '对战'],
-                '建筑': ['建筑', '升级', '建造'],
-                '怪物': ['怪物', '野怪', '敌人']
-            };
-            
+            const keywordPatterns = rulesManager.getRules();
             const textLower = text.toLowerCase();
             
             // 查找匹配的关键词
             for (const [category, patterns] of Object.entries(keywordPatterns)) {
                 for (const pattern of patterns) {
-                    if (textLower.includes(pattern)) {
+                    if (textLower.includes(pattern.toLowerCase())) {
                         return category;
                     }
                 }
