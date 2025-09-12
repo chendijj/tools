@@ -3,333 +3,143 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>功能单据分类工具</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
-        }
-
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 20px;
-            padding: 40px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-        }
-
-        h1 {
-            color: #333;
-            text-align: center;
-            margin-bottom: 10px;
-            font-size: 2.5em;
-        }
-
-        .subtitle {
-            color: #666;
-            text-align: center;
-            margin-bottom: 40px;
-            font-size: 1.1em;
-        }
-
-        .main-content {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 30px;
-            margin-top: 30px;
-        }
-
-        .input-section, .output-section {
-            display: flex;
-            flex-direction: column;
-        }
-
-        .section-title {
-            font-size: 1.3em;
-            font-weight: 600;
-            color: #333;
-            margin-bottom: 15px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .section-icon {
-            font-size: 1.5em;
-        }
-
-        textarea {
-            width: 100%;
-            height: 400px;
-            padding: 15px;
-            border: 2px solid #e9ecef;
-            border-radius: 10px;
-            font-family: 'Courier New', monospace;
-            font-size: 14px;
-            line-height: 1.5;
-            resize: vertical;
-            transition: border-color 0.3s ease;
-        }
-
-        textarea:focus {
-            outline: none;
-            border-color: #667eea;
-        }
-
-        #output {
-            background-color: #f8f9fa;
-            color: #333;
-        }
-
-        .button-group {
-            display: flex;
-            gap: 15px;
-            margin: 20px 0;
-            justify-content: center;
-        }
-
-        .btn {
-            padding: 12px 24px;
-            border: none;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .btn-primary {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-        }
-
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
-        }
-
-        .btn-secondary {
-            background: #6c757d;
-            color: white;
-        }
-
-        .btn-secondary:hover {
-            background: #5a6268;
-            transform: translateY(-2px);
-        }
-
-        .btn-success {
-            background: #28a745;
-            color: white;
-        }
-
-        .btn-success:hover {
-            background: #218838;
-            transform: translateY(-2px);
-        }
-
-        .stats {
-            background: #f8f9fa;
-            border-radius: 10px;
-            padding: 20px;
-            margin: 20px 0;
-            text-align: center;
-        }
-
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 20px;
-        }
-
-        .stat-item {
-            background: white;
-            padding: 15px;
-            border-radius: 8px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-        }
-
-        .stat-number {
-            font-size: 2em;
-            font-weight: bold;
-            color: #667eea;
-        }
-
-        .stat-label {
-            color: #666;
-            margin-top: 5px;
-        }
-
-        .example {
-            background: #e3f2fd;
-            border-left: 4px solid #2196f3;
-            padding: 15px;
-            margin: 20px 0;
-            border-radius: 0 8px 8px 0;
-        }
-
-        .example-title {
-            font-weight: 600;
-            color: #1976d2;
-            margin-bottom: 10px;
-        }
-
-        .example-content {
-            font-family: 'Courier New', monospace;
-            font-size: 14px;
-            line-height: 1.4;
-            white-space: pre-line;
-        }
-
-        @media (max-width: 768px) {
-            .main-content {
-                grid-template-columns: 1fr;
-                gap: 20px;
-            }
-            
-            .container {
-                padding: 20px;
-            }
-            
-            h1 {
-                font-size: 2em;
-            }
-            
-            .button-group {
-                flex-direction: column;
-            }
-            
-            .stats-grid {
-                grid-template-columns: 1fr 1fr;
-            }
-        }
-
-        .toast {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: #28a745;
-            color: white;
-            padding: 15px 20px;
-            border-radius: 8px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-            transform: translateX(400px);
-            transition: transform 0.3s ease;
-            z-index: 1000;
-        }
-
-        .toast.show {
-            transform: translateX(0);
-        }
-    </style>
+    <title>功能单据分类工具 - Tools Collection</title>
+    <!-- 引入主题样式 -->
+    <link rel="stylesheet" href="../shared/theme.css">
 </head>
 <body>
-    <div class="container">
-        <h1>📋 功能单据分类工具</h1>
-        <p class="subtitle">自动将功能单据按类别分类并格式化输出</p>
-
-        <div class="example">
-            <div class="example-title">📝 使用说明</div>
-            <div class="example-content">1. 在左侧输入框中粘贴您的功能单据文本
-2. 支持【类别】功能名称 格式的自动分类
-3. 点击"处理文档"按钮进行分类
-4. 右侧将显示按类别整理后的结果
-5. 可以复制结果或下载为文件
-
-示例输入：
-【GM】PVETest关卡选择，需要支持读取pve_section_config
-【英雄装备】替换装备的时候需要支持脱下后穿戴
-【英雄部队】英雄队伍管理功能（会合并到【英雄】类别）
-pveboss关战力推荐挑战，pve关卡卡点具体到每个boss
-打野怪重伤率提升到千分之1（会自动识别为【怪物】类别）
-装备强化系统优化（会自动识别为【装备】类别）</div>
-        </div>
-
-        <div class="button-group">
-            <button class="btn btn-primary" onclick="loadExample(); processDocument();">
-                🔄 加载示例并处理
-            </button>
-        </div>
-
-        <div class="main-content">
-            <div class="input-section">
-                <div class="section-title">
-                    <span class="section-icon">📝</span>
-                    输入文档
+    <div class="min-h-screen" style="background-color: var(--bg-primary)">
+        <div class="app-container">
+            <!-- 标题栏 -->
+            <header class="header">
+                <div class="title-bar">
+                    <div class="title-left">
+                        <span class="icon">📋</span>
+                        <h1>功能单据分类工具</h1>
+                    </div>
+                    <div class="theme-toggle">
+                        <button onclick="toggleTheme()" title="切换主题">
+                            <span id="themeIcon">🌙</span>
+                        </button>
+                    </div>
                 </div>
-                <textarea id="input" placeholder="请在此处粘贴您的功能单据文本...
+            </header>
+
+            <!-- 主要内容区域 -->
+            <main style="padding: 20px">
+                <div class="animate-fadeIn" style="display: flex; flex-direction: column; gap: 20px">
+
+                    <!-- 工具栏 -->
+                    <div class="toolbar">
+                        <div class="toolbar-content">
+                            <div class="toolbar-group">
+                                <button onclick="processDocument()" class="tool-button primary">
+                                    <span>🔄</span>
+                                    处理文档
+                                </button>
+                                <button onclick="loadExample(); processDocument();" class="tool-button">
+                                    <span>📊</span>
+                                    加载示例
+                                </button>
+                            </div>
+                            <div class="toolbar-group">
+                                <button onclick="copyResult()" class="tool-button success">
+                                    <span>📋</span>
+                                    复制结果
+                                </button>
+                                <button onclick="clearAll()" class="tool-button danger">
+                                    <span>🗑️</span>
+                                    清空
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 主要内容区域 -->
+                    <div class="input-output-grid">
+                        <!-- 输入区域 -->
+                        <div class="card">
+                            <div class="card-header">
+                                <h3 class="card-title">
+                                    <span>📝</span>
+                                    输入文档
+                                </h3>
+                            </div>
+                            <div class="card-body">
+                                <textarea
+                                    id="input"
+                                    class="form-control monospace"
+                                    style="height: 400px;"
+                                    placeholder="请在此处粘贴您的功能单据文本...
 
 支持格式：
 【类别】功能名称
 或者
-普通功能名称（将归类到"其他"）"></textarea>
-            </div>
+普通功能名称（将归类到"其他"）"
+                                ></textarea>
+                            </div>
+                        </div>
 
-            <div class="output-section">
-                <div class="section-title">
-                    <span class="section-icon">📊</span>
-                    分类结果
-                </div>
-                <textarea id="output" readonly placeholder="处理后的分类结果将在此显示..."></textarea>
-            </div>
-        </div>
+                        <!-- 输出区域 -->
+                        <div class="card">
+                            <div class="card-header">
+                                <h3 class="card-title">
+                                    <span>📊</span>
+                                    分类结果
+                                </h3>
+                            </div>
+                            <div class="card-body">
+                                <textarea
+                                    id="output"
+                                    class="form-control monospace"
+                                    style="height: 400px;"
+                                    readonly
+                                    placeholder="处理后的分类结果将在此显示..."
+                                ></textarea>
+                            </div>
+                        </div>
+                    </div>
 
-        <div class="button-group">
-            <button class="btn btn-primary" onclick="processDocument()">
-                🔄 处理文档
-            </button>
-            <button class="btn btn-secondary" onclick="clearAll()">
-                🗑️ 清空
-            </button>
-            <button class="btn btn-success" onclick="copyResult()">
-                📋 复制结果
-            </button>
-            <button class="btn btn-success" onclick="downloadResult()">
-                💾 下载文件
-            </button>
-        </div>
+                    <!-- 统计信息 -->
+                    <div class="stats" id="stats" style="display: none;">
+                        <div class="stats-grid">
+                            <div class="stat-item">
+                                <div class="stat-number" id="totalCategories">0</div>
+                                <div class="stat-label">类别数量</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-number" id="totalFunctions">0</div>
+                                <div class="stat-label">功能总数</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-number" id="categorizedFunctions">0</div>
+                                <div class="stat-label">已分类功能</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-number" id="otherFunctions">0</div>
+                                <div class="stat-label">其他功能</div>
+                            </div>
+                        </div>
+                    </div>
 
-        <div class="stats" id="stats" style="display: none;">
-            <div class="stats-grid">
-                <div class="stat-item">
-                    <div class="stat-number" id="totalCategories">0</div>
-                    <div class="stat-label">类别数量</div>
                 </div>
-                <div class="stat-item">
-                    <div class="stat-number" id="totalFunctions">0</div>
-                    <div class="stat-label">功能总数</div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-number" id="categorizedFunctions">0</div>
-                    <div class="stat-label">已分类功能</div>
-                </div>
-                <div class="stat-item">
-                    <div class="stat-number" id="otherFunctions">0</div>
-                    <div class="stat-label">其他功能</div>
-                </div>
-            </div>
+            </main>
+
         </div>
     </div>
 
+    <!-- Toast通知 -->
     <div class="toast" id="toast"></div>
 
+    <!-- 引入主题脚本 -->
+    <script src="../shared/theme.js"></script>
+    
+    <!-- 工具专有脚本 -->
     <script>
         function processDocument() {
             const input = document.getElementById('input').value.trim();
             if (!input) {
-                showToast('请先输入文档内容', 'error');
+                ToastManager.error('请先输入文档内容');
                 return;
             }
 
@@ -337,9 +147,9 @@ pveboss关战力推荐挑战，pve关卡卡点具体到每个boss
                 const result = processFunctionDocuments(input);
                 document.getElementById('output').value = result.output;
                 updateStats(result.stats);
-                showToast('文档处理完成！');
+                ToastManager.success('文档处理完成！');
             } catch (error) {
-                showToast('处理失败：' + error.message, 'error');
+                ToastManager.error('处理失败：' + error.message);
             }
         }
 
@@ -524,63 +334,25 @@ pveboss关战力推荐挑战，pve关卡卡点具体到每个boss
             document.getElementById('input').value = '';
             document.getElementById('output').value = '';
             document.getElementById('stats').style.display = 'none';
-            showToast('已清空所有内容');
+            ToastManager.success('已清空所有内容');
         }
 
-        function copyResult() {
+        async function copyResult() {
             const output = document.getElementById('output').value;
             if (!output) {
-                showToast('没有可复制的内容', 'error');
+                ToastManager.error('没有可复制的内容');
                 return;
             }
 
-            navigator.clipboard.writeText(output).then(() => {
-                showToast('结果已复制到剪贴板！');
-            }).catch(() => {
-                // 降级方案
-                const textarea = document.getElementById('output');
-                textarea.select();
-                document.execCommand('copy');
-                showToast('结果已复制到剪贴板！');
-            });
-        }
-
-        function downloadResult() {
-            const output = document.getElementById('output').value;
-            if (!output) {
-                showToast('没有可下载的内容', 'error');
-                return;
-            }
-
-            const blob = new Blob([output], { type: 'text/plain;charset=utf-8' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'function_documents_sorted.txt';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-            showToast('文件下载已开始！');
-        }
-
-        function showToast(message, type = 'success') {
-            const toast = document.getElementById('toast');
-            toast.textContent = message;
-            toast.className = 'toast show';
-            
-            if (type === 'error') {
-                toast.style.background = '#dc3545';
+            const success = await Utils.copyToClipboard(output);
+            if (success) {
+                ToastManager.success('结果已复制到剪贴板！');
             } else {
-                toast.style.background = '#28a745';
+                ToastManager.error('复制失败');
             }
-
-            setTimeout(() => {
-                toast.classList.remove('show');
-            }, 3000);
         }
 
-        // 示例数据加载
+// 示例数据加载
         function loadExample() {
             const exampleData = `【GM】PVETest关卡选择，需要支持读取pve_section_config
 【英雄装备】替换装备的时候需要支持脱下后穿戴
@@ -598,12 +370,6 @@ pve失败推荐，建筑升级前五章放到第一位
             
             document.getElementById('input').value = exampleData;
         }
-
-        // 页面加载完成后加载示例
-        window.addEventListener('load', () => {
-            // 可以选择是否自动加载示例
-            // loadExample();
-        });
     </script>
 </body>
 </html>

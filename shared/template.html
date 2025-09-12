@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>工具名称 - Tools Collection</title>
+    <!-- 引入主题样式 -->
+    <link rel="stylesheet" href="../shared/theme.css">
+</head>
+<body>
+    <div class="min-h-screen" style="background-color: var(--bg-primary)">
+        <div class="app-container">
+            <!-- 标题栏 -->
+            <header class="header">
+                <div class="title-bar">
+                    <div class="title-left">
+                        <span class="icon">🔧</span>
+                        <h1>工具名称</h1>
+                    </div>
+                    <div class="theme-toggle">
+                        <button onclick="toggleTheme()" title="切换主题">
+                            <span id="themeIcon">🌙</span>
+                        </button>
+                    </div>
+                </div>
+            </header>
+
+            <!-- 主要内容区域 -->
+            <main style="padding: 20px">
+                <div class="animate-fadeIn" style="display: flex; flex-direction: column; gap: 20px">
+
+                    <!-- 工具栏 -->
+                    <div class="toolbar">
+                        <div class="toolbar-content">
+                            <div class="toolbar-group">
+                                <button class="tool-button primary">
+                                    <span>🔄</span>
+                                    主要操作
+                                </button>
+                                <button class="tool-button">
+                                    <span>📊</span>
+                                    次要操作
+                                </button>
+                            </div>
+                            <div class="toolbar-group">
+                                <button class="tool-button success">
+                                    <span>📋</span>
+                                    复制
+                                </button>
+                                <button class="tool-button success">
+                                    <span>💾</span>
+                                    下载
+                                </button>
+                                <button class="tool-button danger">
+                                    <span>🗑️</span>
+                                    清空
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 主要内容区域 -->
+                    <div class="input-output-grid">
+                        <!-- 输入区域 -->
+                        <div class="card">
+                            <div class="card-header">
+                                <h3 class="card-title">
+                                    <span>📝</span>
+                                    输入
+                                </h3>
+                            </div>
+                            <div class="card-body">
+                                <textarea
+                                    id="input"
+                                    class="form-control monospace"
+                                    style="height: 400px;"
+                                    placeholder="请输入内容..."
+                                ></textarea>
+                            </div>
+                        </div>
+
+                        <!-- 输出区域 -->
+                        <div class="card">
+                            <div class="card-header">
+                                <h3 class="card-title">
+                                    <span>📊</span>
+                                    输出
+                                </h3>
+                            </div>
+                            <div class="card-body">
+                                <textarea
+                                    id="output"
+                                    class="form-control monospace"
+                                    style="height: 400px;"
+                                    readonly
+                                    placeholder="处理结果将在此显示..."
+                                ></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 统计信息 -->
+                    <div class="stats" id="stats" style="display: none;">
+                        <div class="stats-grid">
+                            <div class="stat-item">
+                                <div class="stat-number" id="stat1">0</div>
+                                <div class="stat-label">统计项1</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-number" id="stat2">0</div>
+                                <div class="stat-label">统计项2</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-number" id="stat3">0</div>
+                                <div class="stat-label">统计项3</div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </main>
+
+        </div>
+    </div>
+
+    <!-- Toast通知 -->
+    <div class="toast" id="toast"></div>
+
+    <!-- 引入主题脚本 -->
+    <script src="../shared/theme.js"></script>
+    
+    <!-- 工具专有脚本 -->
+    <script>
+        // 在这里添加工具的具体功能代码
+        
+        // 示例：处理数据
+        function processData() {
+            const input = document.getElementById('input').value.trim();
+            if (!input) {
+                ToastManager.error('请先输入内容');
+                return;
+            }
+
+            try {
+                // 这里添加具体的处理逻辑
+                const result = input.toUpperCase(); // 示例处理
+                document.getElementById('output').value = result;
+                
+                // 更新统计信息
+                updateStats({
+                    stat1: input.length,
+                    stat2: result.split('\n').length,
+                    stat3: result.split(' ').length
+                });
+                
+                ToastManager.success('处理完成！');
+            } catch (error) {
+                ToastManager.error('处理失败：' + error.message);
+            }
+        }
+
+        // 更新统计信息
+        function updateStats(stats) {
+            document.getElementById('stat1').textContent = stats.stat1;
+            document.getElementById('stat2').textContent = stats.stat2;
+            document.getElementById('stat3').textContent = stats.stat3;
+            document.getElementById('stats').style.display = 'block';
+        }
+
+        // 清空所有内容
+        function clearAll() {
+            document.getElementById('input').value = '';
+            document.getElementById('output').value = '';
+            document.getElementById('stats').style.display = 'none';
+            ToastManager.success('已清空所有内容');
+        }
+
+        // 复制结果
+        async function copyResult() {
+            const output = document.getElementById('output').value;
+            if (!output) {
+                ToastManager.error('没有可复制的内容');
+                return;
+            }
+
+            const success = await Utils.copyToClipboard(output);
+            if (success) {
+                ToastManager.success('结果已复制到剪贴板！');
+            } else {
+                ToastManager.error('复制失败');
+            }
+        }
+
+        // 下载结果
+        function downloadResult() {
+            const output = document.getElementById('output').value;
+            if (!output) {
+                ToastManager.error('没有可下载的内容');
+                return;
+            }
+
+            Utils.downloadTextFile(output, 'result.txt');
+            ToastManager.success('文件下载已开始！');
+        }
+
+        // 绑定按钮事件
+        document.addEventListener('DOMContentLoaded', () => {
+            // 根据实际需要绑定事件
+            // 示例绑定（需要根据实际HTML结构调整）
+            
+            // 主要操作按钮
+            const primaryBtn = document.querySelector('.tool-button.primary');
+            if (primaryBtn) primaryBtn.addEventListener('click', processData);
+            
+            // 复制按钮
+            const copyBtn = document.querySelector('.tool-button.success');
+            if (copyBtn) copyBtn.addEventListener('click', copyResult);
+            
+            // 清空按钮
+            const clearBtn = document.querySelector('.tool-button.danger');
+            if (clearBtn) clearBtn.addEventListener('click', clearAll);
+        });
+    </script>
+</body>
+</html>
