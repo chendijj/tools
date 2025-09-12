@@ -111,7 +111,7 @@ def main():
     parser.add_argument(
         '-p', '--port', 
         type=int, 
-        default=8001, 
+        default=5006, 
         help='服务器端口号 (默认: 8001)'
     )
     
