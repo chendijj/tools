@@ -10,7 +10,8 @@ export default defineConfig({
   base: '/tools/json-converter/', // 替换为你的仓库名和项目路径
 
   server: {
-    port: 5174,
+    host: '0.0.0.0', // 允许外部访问
+    port: 5007,
     open: true
   },
 

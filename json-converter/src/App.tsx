@@ -47,6 +47,10 @@ function App() {
   const [history, setHistory] = useState<string[]>([''])
   const [historyIndex, setHistoryIndex] = useState(0)
 
+  // 自定义移除字段功能
+  const [removeFieldsInput, setRemoveFieldsInput] = useState('Has*, ErrorInfo')
+  const [showRemoveFields, setShowRemoveFields] = useState(false)
+
   // 防抖处理输入
   const debouncedInput = useDebounce(input, 300)
 
@@ -251,6 +255,82 @@ function App() {
     }
   }
 
+  // 自定义移除字段功能
+  const removeCustomFields = () => {
+    try {
+      if (!input.trim()) {
+        setError('请输入JSON数据')
+        setOutput('')
+        return
+      }
+
+      // 解析输入的移除字段规则
+      const fieldsToRemove = removeFieldsInput
+        .split(',')
+        .map(field => field.trim())
+        .filter(field => field.length > 0)
+
+      if (fieldsToRemove.length === 0) {
+        setError('请输入要移除的字段名')
+        setOutput('')
+        return
+      }
+
+      const data = JSON.parse(input)
+
+      // 处理resp字段中的嵌套JSON字符串（参考Python代码）
+      if ('resp' in data && typeof data['resp'] === 'string') {
+        try {
+          data['resp'] = JSON.parse(data['resp'])
+        } catch {
+          // 如果解析失败，保持原样
+        }
+      }
+
+      // 递归移除字段的函数
+      const removeKeys = (obj: unknown) => {
+        if (typeof obj === 'object' && obj !== null) {
+          if (Array.isArray(obj)) {
+            // 如果是数组，递归处理每个元素
+            obj.forEach(item => removeKeys(item))
+          } else {
+            const objRecord = obj as Record<string, unknown>
+            // 如果是对象，检查并移除匹配的键
+            const keysToDelete = Object.keys(objRecord).filter(key => {
+              return fieldsToRemove.some(pattern => {
+                if (pattern.endsWith('*')) {
+                  // 支持通配符匹配
+                  const prefix = pattern.slice(0, -1)
+                  return key.startsWith(prefix)
+                } else {
+                  // 精确匹配
+                  return key === pattern
+                }
+              })
+            })
+
+            // 删除匹配的键
+            keysToDelete.forEach(key => {
+              delete objRecord[key]
+            })
+
+            // 递归处理剩余的值
+            Object.values(objRecord).forEach(value => removeKeys(value))
+          }
+        }
+      }
+
+      removeKeys(data)
+
+      const result = JSON.stringify(data, null, 2)
+      setOutput(result)
+      setError('')
+    } catch (err) {
+      setError('无效的JSON格式')
+      setOutput('')
+    }
+  }
+
   const downloadResult = () => {
     if (!output) return
 
@@ -372,6 +452,13 @@ function App() {
                   <span>🔷</span>
                   转TS
                 </button>
+                <button
+                  onClick={() => setShowRemoveFields(!showRemoveFields)}
+                  className={`tool-button ${showRemoveFields ? 'primary' : ''}`}
+                >
+                  <span>🗑️</span>
+                  移除字段
+                </button>
 
               </div>
               <div style={{ display: 'flex', gap: '8px' }}>
@@ -412,6 +499,83 @@ function App() {
               </div>
             </div>
           </div>
+
+          {/* 移除字段配置面板 */}
+          {showRemoveFields && (
+            <div style={{ 
+              backgroundColor: 'var(--bg-tertiary)',
+              border: '1px solid var(--border-color)',
+              borderRadius: 'var(--border-radius)',
+              padding: '20px',
+              boxShadow: 'var(--shadow)'
+            }}>
+              <div style={{ marginBottom: '15px' }}>
+                <h3 style={{ 
+                  fontSize: '16px',
+                  fontWeight: '500',
+                  color: 'var(--text-primary)',
+                  margin: '0 0 10px 0',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}>
+                  <span>🎯</span>
+                  自定义移除字段
+                </h3>
+                <p style={{ 
+                  fontSize: '14px',
+                  color: 'var(--text-secondary)',
+                  margin: 0,
+                  lineHeight: '1.5'
+                }}>
+                  输入要移除的字段名，用逗号分隔。支持通配符 * (例如: Has*, ErrorInfo, data*)
+                </p>
+              </div>
+              
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <input
+                  type="text"
+                  value={removeFieldsInput}
+                  onChange={(e) => setRemoveFieldsInput(e.target.value)}
+                  placeholder="例如: Has*, ErrorInfo, data*"
+                  style={{
+                    flex: '1',
+                    minWidth: '300px',
+                    padding: '10px 12px',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: 'var(--border-radius)',
+                    backgroundColor: 'var(--bg-secondary)',
+                    color: 'var(--text-primary)',
+                    fontSize: '14px',
+                    outline: 'none',
+                    transition: 'var(--transition)'
+                  }}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = 'var(--accent-color)';
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = 'var(--border-color)';
+                  }}
+                />
+                <button
+                  onClick={removeCustomFields}
+                  className="tool-button primary"
+                  style={{ padding: '10px 16px' }}
+                >
+                  <span>🧹</span>
+                  执行移除
+                </button>
+                <button
+                  onClick={() => setRemoveFieldsInput('Has*, ErrorInfo')}
+                  className="tool-button"
+                  style={{ padding: '10px 16px' }}
+                >
+                  <span>🔄</span>
+                  重置默认
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* 主要内容区域 */}
           <div className="input-output-grid">
@@ -510,6 +674,36 @@ function App() {
                   >
                     <span>💬</span>
                     带注释示例
+                  </button>
+                  <button
+                    onClick={() => {
+                      const removeFieldsSample = {
+                        "name": "张三",
+                        "age": 30,
+                        "HasAge": true,
+                        "HasName": true,
+                        "ErrorInfo": "这是错误信息",
+                        "city": "北京",
+                        "resp": JSON.stringify({
+                          "data": {
+                            "user": "test",
+                            "HasUser": true,
+                            "ErrorInfo": "嵌套错误信息"
+                          }
+                        }),
+                        "metadata": {
+                          "HasMetadata": true,
+                          "timestamp": 1234567890,
+                          "ErrorInfo": "元数据错误"
+                        }
+                      }
+                      setInput(JSON.stringify(removeFieldsSample, null, 2))
+                    }}
+                    className="tool-button"
+                    style={{ padding: '8px 12px', fontSize: '12px' }}
+                  >
+                    <span>🗑️</span>
+                    移除字段示例
                   </button>
                 </div>
               </div>
